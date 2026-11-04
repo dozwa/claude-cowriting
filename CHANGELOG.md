@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 (2026-11-04)
+
+### Overleaf
+
+- New `/cowrite:overleaf`: `pull` brings a premium project's state into `manuscript/` through a helper clone the author makes once, `import <zip>` does the same from a source download. Each import is its own commit under the author "Overleaf import", so co-authors' text isn't recorded under the author's name; it stops if `manuscript/` has uncommitted changes, and live review doesn't send the imported text to the personas. Nothing is ever pushed.
+- BibTeX files in `manuscript/` now count as the paper's bibliography, because an Overleaf project keeps its `.bib` inside the project.
+
 ## 0.3.0 (2026-11-04)
 
 ### Switching from `cw`
@@ -7,11 +14,6 @@
 - The plugin has a new name, so updating `cw` does not bring it. Remove the old one and install the new one: `/plugin uninstall cw@cowriting`, `/plugin marketplace update cowriting`, `/plugin install cowrite --marketplace dozwa/claude-cowriting`.
 - Your papers stay as they are. In each one, `/cowrite:paper upgrade apply` replaces `CLAUDE.md` with the version that names the new commands and keeps your copy under `.cowriting/upgrade/<time>/`. Comments in `party.md`, `scope.md` and `literature/style-models/README.md` still say `/cw:`, because those files are yours; they have no effect.
 - The entry for 0.2.0 below writes commands as `/cowrite:`. In that release they were `/cw:`.
-
-### Overleaf
-
-- New `/cowrite:overleaf`: `pull` brings a premium project's state into `manuscript/` through a helper clone the author makes once, `import <zip>` does the same from a source download. Each import is its own commit under the author "Overleaf import", so co-authors' text isn't recorded under the author's name; it stops if `manuscript/` has uncommitted changes, and live review doesn't send the imported text to the personas. Nothing is ever pushed.
-- BibTeX files in `manuscript/` now count as the paper's bibliography, because an Overleaf project keeps its `.bib` inside the project.
 
 ### The plugin is now `cowrite`
 
