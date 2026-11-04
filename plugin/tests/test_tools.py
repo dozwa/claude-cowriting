@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
@@ -25,6 +26,7 @@ sys.path.insert(0, str(TOOLS))
 
 import ailog  # noqa: E402
 import bibliography  # noqa: E402
+import overleaf  # noqa: E402
 import verify_refs  # noqa: E402
 import zotero_search  # noqa: E402
 
@@ -418,6 +420,144 @@ class Bibliography(unittest.TestCase):
         self.assertEqual(sorted(h["title"] for h in walking), ["Walking and mood", "Walking and sleep", "Walking breaks"])
         self.assertEqual({h["citekey"] for h in walking}, {"jones2019walk", None}, "RIS records have no citekey to offer")
         self.assertEqual((coffee[0]["citekey"], coffee[0]["authors"], coffee[0]["doi"]), ("miller2021", "Miller, The Coffee Consortium", "10.2/coffee"))
+
+
+class OverleafImport(unittest.TestCase):
+    """A local bare repository stands in for Overleaf's git address."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name)
+        self.root = base / "paper"
+        (self.root / "manuscript").mkdir(parents=True)
+        self.git(self.root, "init", "-q")
+        self.git(self.root, "config", "user.name", "Ada Author")
+        self.git(self.root, "config", "user.email", "ada@example.org")
+        (self.root / ".gitignore").write_text("*.pdf\n*.aux\n")
+        (self.root / "manuscript/main.tex").write_text("skeleton\n")
+        (self.root / "manuscript/old.tex").write_text("old\n")
+        self.git(self.root, "add", "-A")
+        self.git(self.root, "commit", "-qm", "start")
+
+        self.remote = base / "remote.git"
+        self.git(base, "init", "-q", "--bare", str(self.remote))
+        self.work = base / "overleaf"
+        self.git(base, "clone", "-q", str(self.remote), str(self.work))
+        self.git(self.work, "config", "user.name", "Co Author")
+        self.git(self.work, "config", "user.email", "co@example.org")
+
+    def git(self, cwd: Path, *args: str) -> str:
+        return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+
+    def publish(self, files: dict[str, str]) -> None:
+        for name, content in files.items():
+            path = self.work / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        self.git(self.work, "add", "-A")
+        self.git(self.work, "commit", "-qm", "edit in Overleaf")
+        self.git(self.work, "push", "-q", "origin", "HEAD")
+
+    def connect(self) -> None:
+        clone = overleaf.clone_path(self.root)
+        clone.parent.mkdir(parents=True, exist_ok=True)
+        self.git(self.root, "clone", "-q", str(self.remote), str(clone))
+
+    def test_pull_mirrors_the_project_and_commits_under_the_import_author(self) -> None:
+        self.publish({"main.tex": "from overleaf\n", "figs/plot.pdf": "%PDF", "refs.bib": "@misc{a,title={A}}\n"})
+        self.connect()
+        report = overleaf.pull(self.root)
+        self.assertIn("2 added, 1 changed, 1 removed", report)
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "from overleaf\n")
+        self.assertFalse((self.root / "manuscript/old.tex").exists())
+        self.assertEqual(self.git(self.root, "log", "-1", "--format=%an|%cn"), "Overleaf import|Ada Author")
+        self.assertIn("Overleaf commit", self.git(self.root, "log", "-1", "--format=%b"))
+        # the ignored figure is in the history too, and nothing is left for autosave to commit
+        self.assertIn("manuscript/figs/plot.pdf", self.git(self.root, "ls-files"))
+        self.assertEqual(self.git(self.root, "status", "--porcelain"), "")
+        self.assertNotIn("cowriting", self.git(self.root, "ls-files"))
+
+    def test_a_second_pull_brings_only_what_changed(self) -> None:
+        self.publish({"main.tex": "one\n"})
+        self.connect()
+        overleaf.pull(self.root)
+        self.assertIn("already matches", overleaf.pull(self.root))
+        self.publish({"main.tex": "two\n"})
+        self.assertIn("0 added, 1 changed, 0 removed", overleaf.pull(self.root))
+
+    def test_uncommitted_text_stops_the_import_and_stays(self) -> None:
+        self.publish({"main.tex": "from overleaf\n"})
+        self.connect()
+        (self.root / "manuscript/main.tex").write_text("my unsaved work\n")
+        with self.assertRaisesRegex(overleaf.Refusal, "not committed yet"):
+            overleaf.pull(self.root)
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "my unsaved work\n")
+
+    def test_a_failed_commit_leaves_the_manuscript_as_it_was(self) -> None:
+        self.publish({"main.tex": "from overleaf\n", "new.tex": "new\n"})
+        self.connect()
+        hook_free = overleaf.commit
+        def failing(*_: object) -> None:
+            raise overleaf.Refusal("git could not commit")
+        overleaf.commit = failing
+        self.addCleanup(setattr, overleaf, "commit", hook_free)
+        with self.assertRaises(overleaf.Refusal):
+            overleaf.pull(self.root)
+        self.assertEqual(self.git(self.root, "status", "--porcelain"), "")
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "skeleton\n")
+        self.assertFalse((self.root / "manuscript/new.tex").exists())
+
+    def test_without_a_clone_it_explains_the_setup_and_changes_nothing(self) -> None:
+        report = overleaf.pull(self.root)
+        self.assertIn("git clone https://git.overleaf.com/<project-id>", report)
+        self.assertIn("/cowrite:overleaf import", report)
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "skeleton\n")
+
+    def test_a_token_in_the_clone_url_is_refused_and_not_repeated(self) -> None:
+        self.connect()
+        clone = overleaf.clone_path(self.root)
+        self.git(clone, "remote", "set-url", "origin", "https://git:SECRET@git.overleaf.com/abc")
+        with self.assertRaises(overleaf.Refusal) as caught:
+            overleaf.pull(self.root)
+        self.assertNotIn("SECRET", str(caught.exception))
+        self.assertNotIn("SECRET", overleaf.status(self.root))
+
+    def test_two_papers_in_one_repository_have_their_own_clones(self) -> None:
+        for name in ("a", "b"):
+            (self.root / "projects" / name).mkdir(parents=True)
+        self.assertNotEqual(overleaf.clone_path(self.root / "projects/a"), overleaf.clone_path(self.root / "projects/b"))
+
+    def zip_with(self, members: dict[str, str]) -> Path:
+        archive = Path(self.tmp.name) / "project.zip"
+        with zipfile.ZipFile(archive, "w") as project:
+            for name, content in members.items():
+                project.writestr(name, content)
+        return archive
+
+    def test_a_download_is_imported_like_a_pull(self) -> None:
+        report = overleaf.import_zip(self.root, self.zip_with({"main.tex": "zipped\n", "__MACOSX/x": "junk"}))
+        self.assertIn("Imported", report)
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "zipped\n")
+        self.assertFalse((self.root / "manuscript/__MACOSX").exists())
+        self.assertEqual(self.git(self.root, "log", "-1", "--format=%an"), "Overleaf import")
+
+    def test_a_download_cannot_write_outside_the_manuscript(self) -> None:
+        with self.assertRaisesRegex(overleaf.Refusal, "unsafe path"):
+            overleaf.import_zip(self.root, self.zip_with({"main.tex": "x", "../../evil.tex": "x"}))
+        self.assertFalse((Path(self.tmp.name) / "evil.tex").exists())
+        self.assertEqual((self.root / "manuscript/main.tex").read_text(), "skeleton\n")
+
+    def test_an_archive_without_tex_does_not_empty_the_manuscript(self) -> None:
+        with self.assertRaisesRegex(overleaf.Refusal, "no .tex file"):
+            overleaf.import_zip(self.root, self.zip_with({"holiday.jpg": "x"}))
+        self.assertTrue((self.root / "manuscript/main.tex").exists())
+
+    def test_the_bibliography_of_an_imported_project_is_read(self) -> None:
+        overleaf.import_zip(self.root, self.zip_with({"main.tex": "x", "bib/refs.bib": "@misc{key1,\n  title = {A Title}\n}\n"}))
+        found = bibliography.find_files(self.root / "literature")
+        self.assertEqual([p.name for p in found], ["refs.bib"])
+        self.assertEqual(bibliography.load_all(self.root / "literature")[0]["key"], "key1")
 
 
 class StyleProfile(unittest.TestCase):

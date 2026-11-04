@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Count, FocusMode, GameFile, LiveHint, LogEntry, Paper, PointStatus, RecentTurn, Review, ScopePoint, ScopeProgress, ScopeSection, Snapshot, Stage, Tab, Usage, WatchState } from '../types'
-import { absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, authorFileOf, authorGuardMessage, autosaveMessage, bashTouchesManuscript, bashWritesTo, BRIEF_FILE, briefFor, categoryFor, changedFiles, changedParagraphs, changedPaths, computeStats, countWords, cut, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, limitCrossed, localTime, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, READ_ONLY_TOOLS, setBrief, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
+import { absolutePath, ACHIEVEMENTS, advanceGame, gameAfterImport, AI_TEXT_MARKER, authorFileOf, authorGuardMessage, autosaveMessage, bashTouchesManuscript, bashWritesTo, BRIEF_FILE, briefFor, categoryFor, changedFiles, changedParagraphs, changedPaths, computeStats, countWords, cut, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, limitCrossed, localTime, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, READ_ONLY_TOOLS, setBrief, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
 import type { FileChange, Fingerprint, Paragraph } from './core'
 import { CUSTOM_TOOLS, customDescription, customPersonas, DEFAULT_PARTY, isCustomId, parsePersonaFile, partyPersonas, personaById, personaFileSkeleton, PERSONAS, setCustomPersonas } from './personas'
 import type { CustomPersona, Persona } from './personas'
@@ -486,6 +486,38 @@ export async function autosaveTick($: Engine): Promise<string | null> {
     return message.split('\n')[0]!
   } finally {
     isBusy = false
+  }
+}
+
+/**
+ * /cowrite:overleaf: the author brings the Overleaf project's state into manuscript/. Runs on the host,
+ * not as a tool call, like /cowrite:paper upgrade: Claude's sandbox stays closed to manuscript/ and Overleaf.
+ * isBusy keeps autosave out while the tool mirrors and commits, so co-authors' text is never saved as the author's.
+ */
+export async function runOverleaf($: Engine, paper: Paper, args: string): Promise<string> {
+  const [verb = 'status', ...rest] = args.trim().split(/\s+/).filter(Boolean)
+  if (!['status', 'pull', 'import'].includes(verb)) return 'Usage: /cowrite:overleaf [status | pull | import <zip>]'
+  const archive = rest.join(' ').replace(/^(["'])(.*)\1$/, '$2')
+  if (verb === 'import' && archive === '') return 'Name the download: /cowrite:overleaf import <zip>'
+  if (verb !== 'status' && isBusy) return 'CoWriting is saving the manuscript right now. Try again in a moment.'
+  const tool = join($.plugin.root, 'tools', 'overleaf.py')
+  const argv = ['python3', '-I', tool, verb, ...(verb === 'import' ? [archive] : []), '--dir', paper.root]
+  if (verb !== 'status') isBusy = true
+  try {
+    const game = await readGame($, paper.root)
+    const wordsBefore = await manuscriptWords($, paper)
+    // no prompt: nobody can answer one here, and a missing login should fail at once with its explanation
+    const run = await $.process.run(argv, { env: { GIT_TERMINAL_PROMPT: '0' }, timeoutMs: 300_000 })
+    const report = (run.exitCode === 0 ? run.stdout : run.stderr || run.stdout).trim()
+    // the imported text is the new baseline: live review must not send the whole paper to the personas
+    if (run.exitCode === 0 && report.startsWith('Imported')) {
+      resetWatchBaseline()
+      // the game rewards the author's own writing: imported text earns no XP
+      await writeGame($, paper.root, gameAfterImport(game, wordsBefore, await manuscriptWords($, paper)))
+    }
+    return report
+  } finally {
+    if (verb !== 'status') isBusy = false
   }
 }
 
@@ -2004,6 +2036,12 @@ export const register: Register = (on, options) => {
     await setWatching($, cfg, true, personas)
     const names = (await read($, watchAtom)).personas.map(id => personaById(id)?.name ?? id).join(', ')
     return { text: `👁 Live review on · ${names} · hints show above the prompt when you pause · /cowrite:watch off` }
+  }).catch(commandFailed)
+
+  on('command.run', { command: 'cowrite:overleaf' }, async ($, e) => {
+    const paper = await findPaper($)
+    if (paper === null) return { text: 'No paper here: open one with /cowrite:paper <path>, or set one up with /cowrite:init.' }
+    return { text: await runOverleaf($, paper, e.args) }
   }).catch(commandFailed)
 
   on('command.run', { command: 'cowrite:brief' }, async ($, e, next) => {

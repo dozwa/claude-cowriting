@@ -143,6 +143,7 @@ The CoWriting pane works in the terminal and in the VS Code extension.
 | `/cowrite:consistency` | Report on terms, abbreviations, cross-references, citekeys and figures |
 | `/cowrite:submit [target]` | Pre-submission run as one checklist: the Integrity Guardian's check, the consistency report, open markers (`TODO`, `UNVERIFIED`, `[AI-TEXT]`, …), the references against Crossref, open log turns and whether the disclosure is current. Findings only; readiness is your call. |
 | `/cowrite:annotate` | Record what you did with an AI input |
+| `/cowrite:overleaf [status\|pull\|import <zip>]` | Bring an **Overleaf** project's state into `manuscript/` (see below). You keep writing in Overleaf; nothing is ever sent back. |
 | `/cowrite:quiet [off\|calm\|focus]` | Switch the focus mode for this session. `ctrl+o` always shows everything in full. |
 | `/cowrite:disclosure` | Generate the AI register, and the prompts appendix if your university asks for one (`ailog.py prompts`) |
 | `/cowrite:scope [check\|edit]` | Progress against your plan in `scope.md`; `check` asks which of your points the text makes; `edit` sets the scope with you |
@@ -164,6 +165,15 @@ The status line shows `✍ <paper> · assist-only · Lv3 · 2 to classify · ctx
 Choose the watchers with `/cowrite:watch on terminologist grammar-guy`, or `/cowrite:watch on all`. Stop with `/cowrite:watch off`.
 
 When a persona reviews on request, the transcript shows a single progress line (`🎭 The Terminologist ▰▰▰▱▱ 4 steps · Read main.tex`) and a one-line note when the report comes back. Press `ctrl+o` for the full text.
+
+### Overleaf
+
+You can keep writing in Overleaf and let the party read along. `/cowrite:overleaf` shows the setup; `manuscript/` then mirrors the project.
+
+- **With a premium Overleaf project** (your own, your institution's, or one owned by a premium user): clone it once in your own terminal, as the command shows, then run `/cowrite:overleaf pull` whenever you want the current state. Your token stays with git, out of the session.
+- **Without premium**: download the project's source as a zip and run `/cowrite:overleaf import <zip>`.
+
+Each import is its own commit under the author "Overleaf import", so your co-authors' text doesn't enter the history under your name, and it earns no XP. `manuscript/` must have no uncommitted changes, and files deleted in Overleaf are removed here too (`git revert HEAD` undoes an import). CoWriting never pushes: Overleaf warns that pushes can lose or displace comments and tracked changes. The disclosure covers AI use in this workspace only, so AI used inside Overleaf is not in the log.
 
 ### Scope and progress
 
@@ -244,7 +254,7 @@ The game rewards **your own writing and your transparency, never AI use**:
 
 ## Privacy
 
-Everything stays in your workspace: logs, notes, game state. CoWriting contacts the network only when you ask it to check sources: Crossref for DOIs and titles, your Zotero on `localhost`, and the web through Claude Code's own search tools when a persona looks for literature. Nothing else is sent anywhere. What Claude sees is governed by your Claude Code account and settings, as usual.
+Everything stays in your workspace: logs, notes, game state. CoWriting contacts the network only when you ask it to: `/cowrite:overleaf pull` reads your Overleaf project, and source checks use Crossref for DOIs and titles, your Zotero on `localhost`, and the web through Claude Code's own search tools when a persona looks for literature. Nothing else is sent anywhere. What Claude sees is governed by your Claude Code account and settings, as usual.
 
 Do not put confidential review material or unpublished third-party data into prompts. Autosave commits `ai-log/`, which makes your process verifiable. The log holds your prompts, so before you push the repository anywhere public, check that you're happy to publish them, or switch autosave off.
 

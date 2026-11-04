@@ -246,10 +246,15 @@ LOADERS = {".bib": load_bibtex, ".bibtex": load_bibtex, ".json": load_csl_json, 
 
 
 def find_files(literature: Path) -> list[Path]:
-    """The bibliography files under a folder, in name order; hidden files are skipped."""
-    if not literature.is_dir():
-        return []
-    return sorted(p for p in literature.iterdir() if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in LOADERS)
+    """The bibliography files under a folder, in name order; hidden files are skipped.
+
+    For a paper's literature/ folder this includes BibTeX files in manuscript/: an Overleaf
+    project keeps its bibliography beside the text, because it cannot reach outside itself.
+    """
+    found = [p for p in literature.iterdir() if p.is_file() and p.suffix.lower() in LOADERS] if literature.is_dir() else []
+    if literature.name == "literature":
+        found += [p for p in (literature.parent / "manuscript").rglob("*") if p.is_file() and p.suffix.lower() in (".bib", ".bibtex")]
+    return sorted((p for p in found if not p.name.startswith(".")), key=lambda p: (p.name, str(p)))
 
 
 def load(path: Path) -> list[dict]:

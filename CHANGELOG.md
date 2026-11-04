@@ -8,6 +8,11 @@
 - Your papers stay as they are. In each one, `/cowrite:paper upgrade apply` replaces `CLAUDE.md` with the version that names the new commands and keeps your copy under `.cowriting/upgrade/<time>/`. Comments in `party.md`, `scope.md` and `literature/style-models/README.md` still say `/cw:`, because those files are yours; they have no effect.
 - The entry for 0.2.0 below writes commands as `/cowrite:`. In that release they were `/cw:`.
 
+### Overleaf
+
+- New `/cowrite:overleaf`: `pull` brings a premium project's state into `manuscript/` through a helper clone the author makes once, `import <zip>` does the same from a source download. Each import is its own commit under the author "Overleaf import", so co-authors' text isn't recorded under the author's name; it stops if `manuscript/` has uncommitted changes, and live review doesn't send the imported text to the personas. Nothing is ever pushed.
+- BibTeX files in `manuscript/` now count as the paper's bibliography, because an Overleaf project keeps its `.bib` inside the project.
+
 ### The plugin is now `cowrite`
 
 - The plugin's name changed from `cw` to `cowrite`, so every command is `/cowrite:<name>` and every persona is the `cowrite:<id>` agent. The old slug was two letters with no product word in it, which the plugin directory holds for a reviewer and never lets a listing change afterwards. Reinstall: `/plugin uninstall cw`, then `/plugin install cowrite --marketplace dozwa/claude-cowriting`. AI logs and party files from before keep working: a persona id with the old `cw:` prefix is still read.

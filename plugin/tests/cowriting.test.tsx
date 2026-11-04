@@ -1007,6 +1007,72 @@ test('/cowrite:paper opens a paper by path from any folder and remembers it', as
   expect(task).toContain(`cd "${elsewhere}"`)
 })
 
+test('/cowrite:overleaf runs the tool without a prompt; imported text reaches neither the live review nor the game', async ($, on) => {
+  const files = paperFiles()
+  const main = `${ROOT}/manuscript/main.tex`
+  const mtimes = new Map<string, number>([[main, 1]])
+  workspace(on, files)
+  on('fs.stat', (_: unknown, e: { path: string }) => ({
+    value: { kind: 'file', size: files.get(e.path)?.length ?? 0, mtimeMs: mtimes.get(e.path) ?? 0, isLink: false },
+  }))
+  let asked = ''
+  on('model.complete', (_: unknown, e: { prompt: string }) => {
+    asked = e.prompt
+    return { value: { isAnswered: true as const, text: '[]', usage: {} as never } }
+  })
+  const runs: { argv: readonly string[]; init?: { env?: Record<string, string> } }[] = []
+  let reply = { exitCode: 0, stdout: 'Imported from Overleaf: 0 added, 1 changed, 0 removed.\n', stderr: '' }
+  on('process.run', (_: unknown, e: { argv: readonly string[]; init?: { env?: Record<string, string> } }) => {
+    if (e.argv[0] !== 'python3') return { value: { exitCode: 0, stdout: '', stderr: '' } as never }
+    runs.push(e)
+    if (reply.exitCode === 0) {
+      files.set(main, `${files.get(main)}\n\nA co-author wrote these eight words in Overleaf today.`)
+      mtimes.set(main, (mtimes.get(main) ?? 0) + 1)
+    }
+    return { value: reply as never }
+  })
+  const clock = mock.clock(on, { now: 1_000_000 })
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+  const presentation = { isFullscreen: false, columns: 100 } as never
+  const overleaf = (args: string) => $.command.run({ command: 'cowrite:overleaf', args, origin: { kind: 'composer' }, presentation })
+
+  await $.command.run({ command: 'cowrite:watch', args: 'on', origin: { kind: 'composer' }, presentation })
+  await clock.advance(5_000) // the watcher has its baseline
+  const words = countWords(files.get(main)!, 'latex')
+  files.set(`${ROOT}/.cowriting/game.json`, JSON.stringify({ ...NEW_GAME, baselineWords: words - 100, maxWords: words }))
+
+  const imported = await overleaf('pull')
+  expect(imported.text).toContain('Imported from Overleaf')
+  expect(runs.at(-1)!.argv.slice(3)).toEqual(['pull', '--dir', ROOT])
+  expect(runs.at(-1)!.argv[2]).toMatch(/tools\/overleaf\.py$/)
+  expect(runs.at(-1)!.init?.env).toEqual({ GIT_TERMINAL_PROMPT: '0' })
+
+  const game = JSON.parse(files.get(`${ROOT}/.cowriting/game.json`)!)
+  expect(game.maxWords - game.baselineWords).toBe(100) // the author's own words: unchanged
+  expect(game.maxWords).toBe(countWords(files.get(main)!, 'latex'))
+
+  await clock.advance(120_000)
+  expect(asked).toBe('')
+
+  // the author's next sentence is reviewed again, without what came from Overleaf
+  files.set(main, `${files.get(main)}\n\nMy own next sentence follows here.`)
+  mtimes.set(main, (mtimes.get(main) ?? 0) + 1)
+  await clock.advance(120_000)
+  expect(asked).toContain('My own next sentence')
+  expect(asked).not.toContain('co-author')
+
+  await overleaf('import "~/Downloads/my project.zip"')
+  expect(runs.at(-1)!.argv.slice(3)).toEqual(['import', '~/Downloads/my project.zip', '--dir', ROOT])
+
+  reply = { exitCode: 1, stdout: '', stderr: 'manuscript/ has changes that are not committed yet\n' }
+  expect((await overleaf('pull')).text).toContain('not committed yet')
+
+  const before = runs.length
+  expect((await overleaf('import')).text).toContain('Name the download')
+  expect((await overleaf('push')).text).toContain('Usage')
+  expect(runs.length).toBe(before)
+})
+
 test('autosave reads git status and names the words gained', async () => {
   const porcelain = ' M manuscript/main.tex\0?? manuscript/methods.tex\0R  manuscript/new.md\0manuscript/old.md\0'
   expect(changedPaths(porcelain)).toEqual(['manuscript/main.tex', 'manuscript/methods.tex', 'manuscript/new.md'])

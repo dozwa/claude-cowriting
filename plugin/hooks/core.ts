@@ -409,6 +409,19 @@ export const streakOf = (days: readonly string[], today: string): number => {
  * above its highest count so far earns writer XP, so deleting and retyping
  * earns nothing; AI turns themselves earn nothing.
  */
+/**
+ * The game after an Overleaf import: the words it brought are not the author's writing here, so
+ * baseline and maximum move with them and the words counted as their own stay the same.
+ */
+export const gameAfterImport = (game: GameFile, wordsBefore: number, wordsAfter: number): GameFile =>
+  game.baselineWords === null
+    ? game
+    : {
+        ...game,
+        baselineWords: game.baselineWords + wordsAfter - wordsBefore,
+        maxWords: game.maxWords + wordsAfter - wordsBefore,
+      }
+
 export const advanceGame = (
   previous: GameFile,
   words: number,
