@@ -216,7 +216,7 @@ export const computeStats = (entries: readonly LogEntry[], now: Date): Stats => 
     if (e.type === 'prompt') prompts.set(e.id, e)
     else if (e.type === 'response') responses.set(e.ref, e)
     else if (e.type === 'annotation') annotated.set(e.ref, e)
-    else if (e.type === 'guard') guardEvents += 1
+    else if (e.type === 'guard' && !e.refused) guardEvents += 1 // a refusal changed nothing
   }
 
   const day = now.toISOString().slice(0, 10)

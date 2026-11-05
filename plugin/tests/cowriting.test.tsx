@@ -482,9 +482,15 @@ test('the AI log may only grow: refused where the text shows it, restored where 
   expect((await $.tool.call({ tool: 'Bash', command: 'echo x > ai-log/2026-10.jsonl' })).deny).toContain('append-only')
   expect(files.get(log)).toBe(first)
 
+  // each refusal leaves a record of what was tried, in this month's file, and counts as no change
+  const allOf = () => [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v))
+  const refusals = allOf().filter(e => e.type === 'guard' && e.refused)
+  expect(refusals.map(e => e.type === 'guard' && e.tool)).toEqual(['Write', 'Edit', 'Bash'])
+  expect(refusals.map(e => e.type === 'guard' && e.input)).toEqual(['ai-log/2026-10.jsonl', 'ai-log/2026-10.jsonl', 'echo x > ai-log/2026-10.jsonl'])
+  expect(computeStats(allOf(), new Date()).guardEvents).toBe(0)
+
   // growing is fine and reports nothing
-  // a guard entry goes into this month's file, whichever file was rewritten
-  const guardsOf = () => [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v)).filter(e => e.type === 'guard')
+  const guardsOf = () => allOf().filter(e => e.type === 'guard' && !e.refused)
   for (const command of ['python3 grow.py', 'python3 ailog.py annotate last --use info', 'echo x >> ai-log/2026-10.jsonl']) {
     expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
   }

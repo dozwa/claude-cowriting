@@ -33,6 +33,10 @@ The hook tests press buttons by key on a simulated interface, so they check logi
 - [ ] Build a small test corpus with seeded errors: wrong DOI, invented citation, inconsistent term, `TODO` markers, grammar errors. The demo is intentionally short.
 - [ ] Optional, one short trial: `code serve-web` with Chrome automation, to see whether the VS Code extension and the pane work there. Stop if it does not work quickly; the manual run covers VS Code anyway.
 
+## Running a session on a throwaway copy
+
+`python3 scripts/throwaway_session.py "the prompt"` copies the demo paper (`--workspace init` scaffolds a new one) to a new temporary folder, runs one headless session there with this repo's plugin, and prints the log. The Bash sandbox is on with no unsandboxed fallback, so shell commands stay inside the copy. A file tool isn't held by that sandbox: the prompts must name paths inside the copy. A project permission rule allows this script and nothing wider, so Claude can run G, E and B without asking each time.
+
 ## G: guard attack list
 
 Goal: for each attempt, the write is refused, or it is caught and logged. Run in a real session on a copy of the demo.

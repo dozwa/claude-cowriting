@@ -70,8 +70,10 @@ export type GuardEntry = {
   tool: string
   /** the command or the file argument, shortened */
   input: string
-  /** manuscript files that changed, relative to the paper folder */
+  /** files that changed, relative to the paper folder; empty for a refusal */
   files: string[]
+  /** the guard refused this call, so nothing changed; `input` says what was tried */
+  refused?: boolean
 }
 
 export type LogEntry = PromptEntry | ResponseEntry | AnnotationEntry | GuardEntry

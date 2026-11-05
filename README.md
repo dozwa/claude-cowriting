@@ -283,7 +283,9 @@ The guard refuses what it can recognise, the sandbox refuses what the patterns c
 
 ### The AI log only grows
 
-Your disclosure is built from `ai-log/`, so nothing already in it may change. The plugin and `ailog.py annotate` append to it. File tools are refused, and so are shell commands whose text shows they would do anything but append. After every tool call the log is compared by content: if a call rewrote or removed anything, the plugin puts it back, keeps the altered version in `.cowriting/log-rewrites/`, shows you a notice and lists the attempt in the disclosure under *Attempts to change the AI log afterwards*.
+Your disclosure is built from `ai-log/`, so nothing already in it may change. The plugin and `ailog.py annotate` append to it. File tools are refused, and so are shell commands whose text shows they would do anything but append. After every tool call the log is compared by content: if a call rewrote or removed anything, the plugin puts it back, keeps the altered version in `.cowriting/log-rewrites/`, shows you a notice and lists it in the disclosure under *Changes to the AI log undone after a tool call*.
+
+Refused attempts are on the record too, for your manuscript, your other files and the log alike: each one is a log entry, and the disclosure lists them under *Write attempts by the AI that the guard refused*. They changed nothing, and the pattern check can also refuse a harmless command, so read that list as what was tried, not as what went wrong. It holds a shortened form of each command, so check it before you hand the disclosure in.
 
 This has limits. An append can't be told from a true entry, so Claude could still add a line with a shell command. The operating system's sandbox has no "append only", so this rests on the plugin's hooks: a background process that outlives its tool call, or a change made with the plugin off, isn't noticed. Your own edits to the log aren't blocked either, unless they land during a tool call, in which case they are restored like any other. With autosave on, the git history is the independent record.
 

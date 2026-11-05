@@ -129,7 +129,12 @@ def turns(entries: list[dict]) -> list[dict]:
 
 def guard_events(entries: list[dict]) -> list[dict]:
     """Changes to the author's files the plugin detected during AI tool calls."""
-    return [e for e in entries if e.get("type") == "guard"]
+    return [e for e in entries if e.get("type") == "guard" and not e.get("refused")]
+
+
+def refused_events(entries: list[dict]) -> list[dict]:
+    """Write attempts the guard refused: nothing changed, but the record shows what was tried."""
+    return [e for e in entries if e.get("type") == "guard" and e.get("refused")]
 
 
 def manuscript_files(event: dict) -> list[str]:
@@ -196,6 +201,9 @@ def cmd_stats(root: Path, args) -> None:
     in_manuscript = sum(1 for g in guards if manuscript_files(g))
     print(f"Turns: {len(ts)}  unannotated: {open_count}  [AI-TEXT]: {ai_text}  "
           f"changes to your files during AI tool calls: {len(guards)} (in the manuscript: {in_manuscript})")
+    refused = refused_events(entries)
+    if refused:
+        print(f"Write attempts the guard refused: {len(refused)}")
     for cat, n in by_cat.most_common():
         print(f"  {cat:<12} {n}")
     for g in guards:
@@ -313,7 +321,13 @@ def cmd_disclosure(root: Path, args) -> None:
         if de else
         "Each of these changes was reviewed; what remained in the text is declared above or under [AI-TEXT]."
     )
-    log_head = "Versuche, das KI-Protokoll nachträglich zu ändern" if de else "Attempts to change the AI log afterwards"
+    refused_head = "Vom Schutz abgewiesene Schreibversuche der KI" if de else "Write attempts by the AI that the guard refused"
+    refused_note = (
+        "Dadurch wurde nichts geändert. Die Musterprüfung kann auch harmlose Befehle abweisen."
+        if de else
+        "These changed nothing. The pattern check can also refuse harmless commands."
+    )
+    log_head = "Nach einem Werkzeugaufruf rückgängig gemachte Änderungen am KI-Protokoll" if de else "Changes to the AI log undone after a tool call"
     log_note = (
         "Das Protokoll wurde jeweils wiederhergestellt; die veränderte Fassung liegt unter .cowriting/log-rewrites/."
         if de else
@@ -329,6 +343,7 @@ def cmd_disclosure(root: Path, args) -> None:
     # only the manuscript is declared; a changed bibliography or setting is in the log, not the register
     guard_lines = [f"{g['ts'][:10]}: {g.get('tool', '?')} – {', '.join(manuscript_files(g))}" for g in guards if manuscript_files(g)]
     log_lines = [f"{g['ts'][:10]}: {g.get('tool', '?')} – {', '.join(log_files(g))}" for g in guards if log_files(g)]
+    refused_lines = [f"{g['ts'][:10]}: {g.get('tool', '?')} – {squash(g.get('input', ''), 80)}" for g in refused_events(entries)]
 
     if fmt == "md":
         out = [f"# {title}", "", intro, "", "| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
@@ -347,6 +362,8 @@ def cmd_disclosure(root: Path, args) -> None:
         out += [f"- {line}" for line in guard_lines] + ([guard_note] if guard_lines else []) or [none]
         out += ["", f"## {log_head}", ""]
         out += [f"- {line}" for line in log_lines] + ([log_note] if log_lines else []) or [none]
+        out += ["", f"## {refused_head}", ""]
+        out += [f"- {line}" for line in refused_lines] + ([refused_note] if refused_lines else []) or [none]
         out += ["", f"*{resp}*", ""]
     else:
         e = tex_escape
@@ -373,6 +390,11 @@ def cmd_disclosure(root: Path, args) -> None:
         out += [f"\\subsection*{{{e(log_head)}}}"]
         if log_lines:
             out += ["\\begin{itemize}"] + [f"  \\item {e(line)}" for line in log_lines] + ["\\end{itemize}", e(log_note)]
+        else:
+            out.append(e(none))
+        out += [f"\\subsection*{{{e(refused_head)}}}"]
+        if refused_lines:
+            out += ["\\begin{itemize}"] + [f"  \\item {e(line)}" for line in refused_lines] + ["\\end{itemize}", e(refused_note)]
         else:
             out.append(e(none))
         out += ["", f"\\textit{{{e(resp)}}}", ""]

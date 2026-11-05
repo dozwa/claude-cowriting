@@ -3,6 +3,7 @@
 ## 0.4.0 (unreleased)
 
 - **The AI log only grows.** It used to be append-only by convention. File tools and shell commands that would change what is already in `ai-log/` are now refused, and after every tool call the log is compared by content: a rewrite is undone, the altered version is kept in `.cowriting/log-rewrites/`, and the attempt is shown and listed in the disclosure. `/cowrite:paper upgrade apply` brings the new rule line to an existing workspace's `CLAUDE.md`. The README states the limits.
+- **Refused attempts are on the record.** A refused write used to leave no trace. Each refusal, for the manuscript, the author's other files and the log, is now a log entry and is listed in the disclosure under its own heading. It does not count as a change to the author's files.
 
 ## 0.3.5 (2026-11-04)
 

@@ -2298,6 +2298,26 @@ async function summarizeChanges($: Engine, cfg: Config): Promise<void> {
 }
 
 /** A change to the author's files during a tool call: logged, shown, and from then on in the disclosure. */
+/** Refuse a tool call and keep a record of it: what was tried belongs in the log even though nothing changed. */
+async function refuse($: Engine, tool: string, input: Readonly<Record<string, unknown>>, message: string): Promise<{ deny: string }> {
+  if (turn !== null) turn.tools.add(tool)
+  const paper = await findPaper($).catch(() => null)
+  if (paper !== null) {
+    await appendLog($, paper.root, {
+      type: 'guard',
+      refused: true,
+      ts: new Date().toISOString(),
+      session: await $.session.id(),
+      paper: paper.name,
+      ...(turn !== null ? { ref: turn.id } : {}),
+      tool,
+      input: guardInputOf(tool, input).split(`${paper.root}/`).join(''), // the disclosure doesn't need the author's home folder
+      files: [],
+    }).catch(() => undefined)
+  }
+  return { deny: message }
+}
+
 async function reportGuard($: Engine, cfg: Config, paper: Paper, tool: string, input: string, files: string[], message?: string): Promise<void> {
   await appendLog($, paper.root, {
     type: 'guard',
@@ -2774,20 +2794,20 @@ export const register: Register = (on, options) => {
     const command = String(input.command ?? '')
     const isFileWrite = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)
     // a paper's manuscript folder is refused wherever the paper is; a folder of that name in another project is not ours
-    if (isFileWrite && (await fileHitsPaperManuscript($, path))) return { deny: GUARD_MESSAGE }
-    if (tool === 'Bash' && (await bashHitsPaperManuscript($, command))) return { deny: GUARD_MESSAGE }
+    if (isFileWrite && (await fileHitsPaperManuscript($, path))) return refuse($, tool, input, GUARD_MESSAGE)
+    if (tool === 'Bash' && (await bashHitsPaperManuscript($, command))) return refuse($, tool, input, GUARD_MESSAGE)
     // inside the paper, everything but Claude's own places is the author's
     const paper = READ_ONLY_TOOLS.has(tool) ? null : await findPaper($).catch(() => null)
     if (paper !== null && (isFileWrite || tool === 'Bash')) {
       const cwd = await $.session.cwd()
       const isLog = (target: string) => isLogPath(absolutePath(cwd, target), paper.root)
-      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog)) return { deny: LOG_GUARD_MESSAGE }
+      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog)) return refuse($, tool, input, LOG_GUARD_MESSAGE)
       if (isFileWrite) {
         const file = authorFileOf(absolutePath(cwd, path), paper.root)
-        if (file !== null) return { deny: authorGuardMessage(file) }
+        if (file !== null) return refuse($, tool, input, authorGuardMessage(file))
       } else {
         const isAuthors = (target: string) => authorFileOf(absolutePath(cwd, target), paper.root) !== null
-        if (bashWritesTo(command, isAuthors, await authorNames($, paper.root))) return { deny: authorGuardMessage('the file this command writes') }
+        if (bashWritesTo(command, isAuthors, await authorNames($, paper.root))) return refuse($, tool, input, authorGuardMessage('the file this command writes'))
       }
     }
 

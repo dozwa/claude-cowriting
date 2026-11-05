@@ -259,15 +259,34 @@ class PaperWorkspace(unittest.TestCase):
                    "input": "python3 tidy.py", "files": ["ai-log/2026-10.jsonl"]}
         log.write_text("".join(json.dumps(e) + "\n" for e in FIXTURE if e["type"] != "guard"), encoding="utf-8")
         run("ailog.py", "disclosure", cwd=self.root)
-        self.assertIn("## Attempts to change the AI log afterwards\n\nNone.", self.read("ai-register.en.md"))
+        self.assertIn("## Changes to the AI log undone after a tool call\n\nNone.", self.read("ai-register.en.md"))
         log.write_text("".join(json.dumps(e) + "\n" for e in FIXTURE + [rewrite]), encoding="utf-8")
         run("ailog.py", "disclosure", cwd=self.root)
         text = self.read("ai-register.en.md")
         self.assertIn("- 2026-10-08: Bash – ai-log/2026-10.jsonl\n", text)
         self.assertIn("The log was restored each time", text)
-        self.assertNotIn("2026-10-08: Bash", text.split("## Attempts")[0])
+        self.assertNotIn("2026-10-08: Bash", text.split("## Changes to the AI log")[0])
         run("ailog.py", "disclosure", "--lang", "de", "--format", "tex", cwd=self.root)
-        self.assertIn("Versuche, das KI-Protokoll", self.read("ai-register.de.tex"))
+        self.assertIn("rückgängig gemachte Änderungen am KI-Protokoll", self.read("ai-register.de.tex"))
+
+    def test_a_refused_attempt_is_listed_on_its_own_and_counts_as_no_change(self) -> None:
+        log = self.root / "ai-log" / "2026-10.jsonl"
+        refused = {"type": "guard", "refused": True, "ts": "2026-10-09T10:00:00Z", "session": "s", "paper": "Testarbeit",
+                   "tool": "Write", "input": "manuscript/main.tex", "files": []}
+        clean = [e for e in FIXTURE if e["type"] != "guard"]
+        log.write_text("".join(json.dumps(e) + "\n" for e in clean), encoding="utf-8")
+        run("ailog.py", "disclosure", cwd=self.root)
+        self.assertIn("## Write attempts by the AI that the guard refused\n\nNone.", self.read("ai-register.en.md"))
+        log.write_text("".join(json.dumps(e) + "\n" for e in clean + [refused]), encoding="utf-8")
+        stats = run("ailog.py", "stats", cwd=self.root)
+        self.assertIn("changes to your files during AI tool calls: 0 (in the manuscript: 0)", stats.stdout)
+        self.assertIn("Write attempts the guard refused: 1", stats.stdout)
+        run("ailog.py", "disclosure", cwd=self.root)
+        text = self.read("ai-register.en.md")
+        self.assertIn("## Manuscript changes detected during AI tool calls\n\nNone.", text)
+        self.assertIn("- 2026-10-09: Write – manuscript/main.tex\nThese changed nothing.", text)
+        run("ailog.py", "disclosure", "--lang", "de", "--format", "tex", cwd=self.root)
+        self.assertIn("Vom Schutz abgewiesene Schreibversuche", self.read("ai-register.de.tex"))
 
     def test_disclosure_lists_only_manuscript_changes_the_log_keeps_the_rest(self) -> None:
         log = self.root / "ai-log" / "2026-10.jsonl"
