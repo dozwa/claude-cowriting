@@ -88,6 +88,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("prompt", nargs="?")
     parser.add_argument("--prompt-file", type=Path, help="read the prompt from a file, such as an attack list in dev/attacks/")
+    parser.add_argument("--trail", action="store_true", help="run the paper-trail test: a known session against the log, the disclosure and the appendix")
     parser.add_argument("--behaviour", nargs="*", metavar="CASE", help="run the model-behaviour suite in dev/behaviour/cases.json, all of it or the cases named")
     parser.add_argument("--suite", nargs="*", metavar="CASE", help="run the real-session guard suite in dev/attacks/cases.json, all of it or the cases named")
     parser.add_argument("--workspace", choices=("demo", "init", *OTHER_PROJECTS), default="demo")
@@ -95,6 +96,10 @@ def main() -> int:
     parser.add_argument("--add", nargs=2, action="append", default=[], metavar=("SOURCE", "TARGET"), help="copy a file into the paper, TARGET relative to it")
     parser.add_argument("--dry-run", action="store_true", help="make the copy and print the command, but start no session")
     args = parser.parse_args()
+    if args.trail:
+        from trail_suite import run_trail  # it imports this file, so not at the top
+
+        return run_trail(args.model)
     if args.behaviour is not None:
         from behaviour_suite import run_suite as run_behaviour  # it imports this file, so not at the top
 

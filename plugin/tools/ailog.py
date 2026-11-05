@@ -259,6 +259,8 @@ def cmd_disclosure(root: Path, args) -> None:
     for cat, items in sorted(groups.items(), key=lambda kv: -len(kv[1])):
         dates = sorted(t["prompt"]["ts"][:10] for t in items)
         is_auto = all(t["is_auto"] for t in items)
+        # a turn that only launched a reviewer and the report it brought are one request
+        requests = max(1, sum(not t["is_launch"] for t in items))
         if is_auto:
             noted = Counter(t["annotation"]["use"] for t in items if t["annotation"])
             use = use_labels["auto"] + ("; " + ", ".join(f"{use_labels[u]}: {n}" for u, n in noted.most_common()) if noted else "")
@@ -273,8 +275,8 @@ def cmd_disclosure(root: Path, args) -> None:
             "purpose": labels.get(cat, cat),
             "tool": tool_label(items),
             "extent": (
-                f"{len(items)} {'Anfrage' if len(items) == 1 else 'Anfragen'}, {dates[0]} bis {dates[-1]}" if de
-                else f"{len(items)} {'request' if len(items) == 1 else 'requests'}, {dates[0]} to {dates[-1]}"
+                f"{requests} {'Anfrage' if requests == 1 else 'Anfragen'}, {dates[0]} bis {dates[-1]}" if de
+                else f"{requests} {'request' if requests == 1 else 'requests'}, {dates[0]} to {dates[-1]}"
             ),
             "use": use,
             "chapters": ", ".join(chapters) or "–",

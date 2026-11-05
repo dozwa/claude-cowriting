@@ -269,6 +269,18 @@ class PaperWorkspace(unittest.TestCase):
         run("ailog.py", "disclosure", "--lang", "de", "--format", "tex", cwd=self.root)
         self.assertIn("rückgängig gemachte Änderungen am KI-Protokoll", self.read("ai-register.de.tex"))
 
+    def test_a_review_and_the_turn_that_launched_it_count_as_one_request(self) -> None:
+        log = self.root / "ai-log" / "2026-10.jsonl"
+        entries = [
+            {"type": "prompt", "id": "ask", "ts": "2026-10-01T10:00:00Z", "category": "terminology", "text": "/cowrite:summon terminologist"},
+            {"type": "response", "ref": "ask", "ts": "2026-10-01T10:00:05Z", "model": "m", "agents": {"a1": "terminologist"}, "answer": "on it"},
+            {"type": "prompt", "id": "rep", "ts": "2026-10-01T10:01:00Z", "category": "terminology", "origin": "agent", "agent": "terminologist", "text": "the report"},
+            {"type": "response", "ref": "rep", "ts": "2026-10-01T10:01:05Z", "model": "m", "answer": "it found one"},
+        ]
+        log.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
+        run("ailog.py", "disclosure", cwd=self.root)
+        self.assertIn("| 1 request, 2026-10-01 to 2026-10-01 |", self.read("ai-register.en.md"))
+
     def test_a_refused_attempt_is_listed_on_its_own_and_counts_as_no_change(self) -> None:
         log = self.root / "ai-log" / "2026-10.jsonl"
         refused = {"type": "guard", "refused": True, "ts": "2026-10-09T10:00:00Z", "session": "s", "paper": "Testarbeit",

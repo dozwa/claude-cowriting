@@ -22,21 +22,24 @@
       "title": "AI text is flagged only if the model marks it: unmarked prose in an answer is not detected",
       "evidence": "`e.answer.includes(AI_TEXT_MARKER)` in `plugin/hooks/register.tsx`",
       "why": "R1.1 and R1.4 depend on model behaviour, which has no tests today",
-      "status": "open"
+      "status": "accepted",
+      "note": "Decided by the author, 2026-11-05: marker only, no guess-based detector. 9 of 9 clean on Haiku. The limit is in the README"
     },
     {
       "id": 3,
       "title": "No warning for confidential material: only a rule line in the workspace `CLAUDE.md` exists",
       "evidence": "Search over hooks, tools and template",
       "why": "R6.1 promises a warning",
-      "status": "open"
+      "status": "accepted",
+      "note": "Deferred by the author past 0.4.0: no new features before it. The README says there is no warning"
     },
     {
       "id": 4,
       "title": "No per-institution disclosure template: fixed text that says to adapt it, and the skill helps by hand",
       "evidence": "`plugin/tools/ailog.py`, disclosure skill",
       "why": "R4.2 is only partly met",
-      "status": "open"
+      "status": "accepted",
+      "note": "Deferred by the author past 0.4.0: no new features before it. The README says there are no templates"
     },
     {
       "id": 5,
@@ -424,7 +427,7 @@
         "ailog"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -439,7 +442,7 @@
       "automated": "Yes",
       "add": "E",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -995,8 +998,8 @@
     {
       "id": "R1.1",
       "text": "No manuscript prose from Claude",
-      "status": "partly",
-      "note": "Rule only: file writes are guarded, chat answers are not"
+      "status": "met",
+      "note": "Rule, plus 9 of 9 clean in real sessions; the limit on unmarked text is accepted and in the README (finding 2)"
     },
     {
       "id": "R1.2",
@@ -1013,8 +1016,8 @@
     {
       "id": "R1.4",
       "text": "An override is logged and marked",
-      "status": "partly",
-      "note": "Depends on the model writing the marker (finding 2)"
+      "status": "met",
+      "note": "3 of 3 marked, logged and disclosed; the limit is accepted and in the README (finding 2)"
     },
     {
       "id": "R2.1",
@@ -1055,8 +1058,8 @@
     {
       "id": "R4.2",
       "text": "Template per institution or journal",
-      "status": "partly",
-      "note": "Finding 4"
+      "status": "deferred",
+      "note": "Past 0.4.0, the author's decision; the README says there are no templates"
     },
     {
       "id": "R5.1",
@@ -1079,8 +1082,8 @@
     {
       "id": "R6.1",
       "text": "A warning when confidential material is about to go to the model",
-      "status": "open",
-      "note": "Finding 3"
+      "status": "deferred",
+      "note": "Past 0.4.0, the author's decision; the README says there is no warning"
     },
     {
       "id": "R6.2",
@@ -2029,6 +2032,99 @@
       "version": "0.3.5",
       "commit": "7ffc840",
       "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 2",
+      "status": "accepted",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Decided by the author, 2026-11-05: marker only, no guess-based detector. 9 of 9 clean on Haiku. The limit is in the README"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 3",
+      "status": "accepted",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Deferred by the author past 0.4.0: no new features before it. The README says there is no warning"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 4",
+      "status": "accepted",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Deferred by the author past 0.4.0: no new features before it. The README says there are no templates"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R6.1",
+      "status": "deferred",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Past 0.4.0, the author's decision; the README says there is no warning"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R4.2",
+      "status": "deferred",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Past 0.4.0, the author's decision; the README says there are no templates"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R1.1",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "Rule, plus 9 of 9 clean in real sessions; the limit on unmarked text is accepted and in the README (finding 2)"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R1.4",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "d048ef5",
+      "note": "3 of 3 marked, logged and disclosed; the limit is accepted and in the README (finding 2)"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F17",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "d048ef5",
+      "note": "Paper trail on Haiku, real sessions, headless: all four language and format pairs match the ledger"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F18",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "d048ef5",
+      "note": "Paper trail on Haiku, real sessions, headless: every input and the author's note are in the appendix, all four pairs"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F14",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "d048ef5",
+      "note": "Paper trail on Haiku, real sessions, headless: every prompt once with its answer, model and versions; nothing invented"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 7",
+      "status": "open",
+      "version": "0.3.5",
+      "commit": "d048ef5"
     }
   ]
 }

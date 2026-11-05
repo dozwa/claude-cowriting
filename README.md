@@ -268,7 +268,9 @@ Counting needs no AI. Whether a point is actually *made* does: `/cowrite:scope c
 
 ### If you really want AI text
 
-You can insist. Claude then marks the passage `[AI-TEXT]`, the log flags it, and the disclosure lists it. Nothing is hidden.
+You can insist. Claude then marks the passage `[AI-TEXT]`, the log flags it, and the disclosure lists it.
+
+The plugin recognises AI text by that marker, which Claude writes itself. In our tests Claude declined every request for text unless the author insisted, and then marked it. But if a model ever wrote text without the marker, the flag and the disclosure's list would miss it. The answer would still be in the log and the prompts appendix, word for word.
 
 ### The manuscript guard
 
@@ -342,11 +344,11 @@ The game rewards **your own writing and your transparency, never AI use**:
 
 Everything stays in your workspace: logs, notes, game state. CoWriting contacts the network only when you ask it to check sources: Crossref for DOIs and titles, your Zotero on `localhost`, and the web through Claude Code's own search tools when a persona looks for literature. Nothing else is sent anywhere. What Claude sees is governed by your Claude Code account and settings, as usual.
 
-Do not put confidential review material or unpublished third-party data into prompts. Autosave commits `ai-log/`, which makes your process verifiable. The log holds your prompts, so before you push the repository anywhere public, check that you're happy to publish them, or switch autosave off.
+Do not put confidential review material or unpublished third-party data into prompts. The plugin doesn't check for this and won't warn you, so this one is up to you. Autosave commits `ai-log/`, which makes your process verifiable. The log holds your prompts, so before you push the repository anywhere public, check that you're happy to publish them, or switch autosave off.
 
 ## Disclaimer
 
-CoWriting supports good practice. It doesn't replace the rules of your university, journal or funder, and it doesn't replace your own judgement. Check what your examination regulations or target journal require, and adapt the generated disclosure to them.
+CoWriting supports good practice. It doesn't replace the rules of your university, journal or funder, and it doesn't replace your own judgement. Check what your examination regulations or target journal require, and adapt the generated disclosure to them: there is one format so far, with no templates per institution.
 
 CoWriting is in early alpha and maintained by one person in their spare time. Functions, commands, file formats and the folder structure can change massively from one release to the next, with no promise of backward compatibility beyond what the release notes say, and there is no guaranteed support or response time. The software is provided "as is", without warranty of any kind, express or implied, and the author is not liable for any claim, damages or other liability arising from its use, including lost text, a wrong or incomplete AI disclosure, or a decision of your university, journal or funder. Those are the terms of the [MIT license](LICENSE), and they apply to the whole project. You remain responsible for your manuscript, your backups and your declarations.
 
