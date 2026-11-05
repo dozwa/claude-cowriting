@@ -67,12 +67,13 @@ class Tracker(unittest.TestCase):
         self.assertEqual(self.feature("F17")["status"], {"any": "pass"})
 
     def test_a_result_says_how_it_was_found_and_a_deferral_why(self) -> None:
+        history = self.read()["history"]
         self.assertEqual(self.run_tool("set", "F17", "pass").returncode, 2)
         self.assertEqual(self.run_tool("set", "F17", "deferred").returncode, 2)
         self.assertEqual(self.run_tool("finding", "1", "accepted").returncode, 2)
         self.assertEqual(self.run_tool("set", "F999", "pass", "--by", "U").returncode, 2)
         self.assertEqual(self.run_tool("set", "R6.1", "pass").returncode, 2)  # a requirement is met, not passed
-        self.assertEqual(self.read()["history"], [])
+        self.assertEqual(self.read()["history"], history)  # nothing refused leaves a trace
 
     def settle_what_blocks(self) -> dict:
         data = self.read()
