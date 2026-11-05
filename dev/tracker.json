@@ -1090,8 +1090,8 @@
     {
       "id": "R6.2",
       "text": "Personal and research data follow the project's privacy rules",
-      "status": "open",
-      "note": "README warning only"
+      "status": "deferred",
+      "note": "Past 0.4.0, the author's decision; the README says the plugin doesn't check for personal data"
     },
     {
       "id": "R7.1",
@@ -2754,6 +2754,14 @@
       "version": "0.3.5",
       "commit": "eb47a73",
       "note": "Hook test and real session g8: a forged file is taken out, kept, recorded and disclosed"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R6.2",
+      "status": "deferred",
+      "version": "0.3.5",
+      "commit": "2d9e697",
+      "note": "Past 0.4.0, the author's decision; the README says the plugin doesn't check for personal data"
     }
   ]
 }

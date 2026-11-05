@@ -346,7 +346,7 @@ The game rewards **your own writing and your transparency, never AI use**:
 
 Everything stays in your workspace: logs, notes, game state. CoWriting contacts the network only when you ask it to check sources: Crossref for DOIs and titles, your Zotero on `localhost`, and the web through Claude Code's own search tools when a persona looks for literature. Nothing else is sent anywhere. What Claude sees is governed by your Claude Code account and settings, as usual.
 
-Do not put confidential review material or unpublished third-party data into prompts. The plugin doesn't check for this and won't warn you, so this one is up to you. Autosave commits `ai-log/`, which makes your process verifiable. The log holds your prompts, so before you push the repository anywhere public, check that you're happy to publish them, or switch autosave off.
+Do not put confidential review material, unpublished third-party data or personal data into prompts unless your project's rules allow it. The plugin doesn't check for this and won't warn you, so this one is up to you. Autosave commits `ai-log/`, which makes your process verifiable. The log holds your prompts, so before you push the repository anywhere public, check that you're happy to publish them, or switch autosave off.
 
 ## Disclaimer
 
