@@ -63,7 +63,7 @@
       "evidence": "Search by name in `plugin/tests/cowriting.test.tsx`; a rough check",
       "why": "These are the instructions behind most of the help the author sees",
       "status": "fixed",
-      "note": "Every skill but /cowrite:init is now run for real by the behaviour suite; /cowrite:init is on the manual list"
+      "note": "Every skill that does its work in a session is now run for real by the behaviour suite. Not run: the interviews of /cowrite:init, /cowrite:brief without text, /cowrite:party new and /cowrite:scope edit, which are on the manual list"
     },
     {
       "id": 8,
@@ -524,7 +524,7 @@
         "summon"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -2380,6 +2380,24 @@
       "version": "0.3.5",
       "commit": "15f2ad0",
       "note": "Every skill but /cowrite:init is now run for real by the behaviour suite; /cowrite:init is on the manual list"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 7",
+      "status": "fixed",
+      "version": "0.3.5",
+      "commit": "caf891a",
+      "note": "Every skill that does its work in a session is now run for real by the behaviour suite. Not run: the interviews of /cowrite:init, /cowrite:brief without text, /cowrite:party new and /cowrite:scope edit, which are on the manual list"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F22",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "B",
+      "commit": "caf891a",
+      "note": "Real headless sessions: /cowrite:summon for all ten personas, /cowrite:ask once"
     }
   ]
 }

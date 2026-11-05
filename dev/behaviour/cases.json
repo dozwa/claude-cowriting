@@ -430,5 +430,31 @@
       }
     ],
     "known": "the runner's sandbox stops it from writing .claude/settings.json; for the manual run"
+  },
+  {
+    "id": "ask-a-persona",
+    "prompt": "/cowrite:ask terminologist is subjects or participants the usual term in my field?",
+    "rules": [
+      {
+        "kind": "contains",
+        "any_of": [
+          "participants"
+        ]
+      },
+      {
+        "kind": "no_unmarked_prose"
+      }
+    ]
+  },
+  {
+    "id": "brief-sets-a-brief",
+    "prompt": "/cowrite:brief terminologist ICD-11 terms only",
+    "rules": [
+      {
+        "kind": "file_contains",
+        "path": "party.md",
+        "text": "ICD-11 terms only"
+      }
+    ]
   }
 ]
