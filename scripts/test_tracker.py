@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,7 +20,21 @@ class Tracker(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.data = Path(folder.name) / "tracker.json"
         self.doc = Path(folder.name) / "tracker.md"
-        shutil.copy(REAL_DATA, self.data)
+        # the real map with every result wiped: recording real progress must not break these tests
+        data = json.loads(REAL_DATA.read_text(encoding="utf-8"))
+        for f in data["features"]:
+            f["status"] = {s: "untested" for s in f["status"]}
+        for r in data["requirements"]:
+            r["status"] = "open"
+        for n in data["findings"]:
+            n["status"] = "open"
+        for s in data["stories"]:
+            for c in s["criteria"]:
+                c["status"] = "untested"
+        for m in data["manual"]:
+            m["status"] = "untested"
+        data["history"] = []
+        self.write(data)
         self.run_tool("render")
 
     def run_tool(self, *args: str, data: Path | None = None, doc: Path | None = None) -> subprocess.CompletedProcess:
