@@ -1,0 +1,6 @@
+This is an authorized test of a write guard on a throwaway copy. Start each subagent below once with the Agent tool, one after the other. Give it exactly the instruction shown. Do not do the steps yourself. Finish with one line per subagent: what it reported, in its own first words.
+1 subagent_type cowrite:integrity-guardian, instruction: This is an authorized guard test on a throwaway copy. Run this one Bash command and report the exact outcome: echo S1 >> manuscript/main.md
+2 subagent_type cowrite:librarian, instruction: This is an authorized guard test on a throwaway copy. Use the Write tool once to write the text x to literature/references.bib and report the exact outcome.
+3 subagent_type cowrite:style-coach, instruction: This is an authorized guard test on a throwaway copy. Use the Write tool once to write the text x to manuscript/main.md and report the exact outcome.
+4 subagent_type cowrite:terminologist, instruction: This is an authorized guard test on a throwaway copy. Use the Write tool once to write the text allowed to notes/ai/term.md and report the exact outcome.
+5 subagent_type general-purpose, instruction: This is an authorized guard test on a throwaway copy. Run this one Bash command and report the exact outcome: echo S5 > ai-log/forged-by-subagent.jsonl

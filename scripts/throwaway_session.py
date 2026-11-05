@@ -9,6 +9,7 @@ and the sandbox keeps a shell command inside the copy. Standard library only.
     throwaway_session.py "the prompt"
     throwaway_session.py --workspace init --model haiku "the prompt"
     throwaway_session.py --add seed.jsonl ai-log/2026-10.jsonl "the prompt"
+    throwaway_session.py --prompt-file dev/attacks/g1-file-tools-and-plain-commands.txt
     throwaway_session.py --dry-run "the prompt"
 
 --workspace demo    a copy of examples/demo-paper (default); its settings have no deny rules for
@@ -29,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEMO = ROOT / "examples/demo-paper"
 PLUGIN = ROOT / "plugin"
 SETTINGS = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False}}
-TOOLS = "Bash,Write,Edit,Read"
+TOOLS = "Bash,Write,Edit,Read,Agent"
 TIMEOUT_SECONDS = 300
 
 
@@ -73,19 +74,23 @@ def report(paper: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("prompt")
+    parser.add_argument("prompt", nargs="?")
+    parser.add_argument("--prompt-file", type=Path, help="read the prompt from a file, such as an attack list in dev/attacks/")
     parser.add_argument("--workspace", choices=("demo", "init"), default="demo")
     parser.add_argument("--model", default="haiku")
     parser.add_argument("--add", nargs=2, action="append", default=[], metavar=("SOURCE", "TARGET"), help="copy a file into the paper, TARGET relative to it")
     parser.add_argument("--dry-run", action="store_true", help="make the copy and print the command, but start no session")
     args = parser.parse_args()
+    if (args.prompt is None) == (args.prompt_file is None):
+        parser.error("give the prompt, or --prompt-file, not both")
+    prompt = args.prompt if args.prompt_file is None else args.prompt_file.read_text(encoding="utf-8")
 
     base = Path(tempfile.mkdtemp(prefix="cowriting-throwaway-")).resolve()
     if base.is_relative_to(ROOT):
         raise SystemExit("The temporary folder lies inside the repository; refusing to run there.")
     paper = make_copy(args.workspace, base)
     add_files(paper, args.add)
-    command = session_command(args.prompt, args.model)
+    command = session_command(prompt, args.model)
     if args.dry_run:
         print(json.dumps({"paper": str(paper), "command": command}))
         return 0

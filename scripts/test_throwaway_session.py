@@ -37,6 +37,19 @@ class DryRun(unittest.TestCase):
         self.assertEqual(settings["sandbox"], {"enabled": True, "allowUnsandboxedCommands": False})
         self.assertEqual(command[command.index("--plugin-dir") + 1], str(REPO / "plugin"))
 
+    def test_a_prompt_can_come_from_a_file_but_not_from_both(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        attack = Path(folder.name) / "attack.txt"
+        attack.write_text("from the file", encoding="utf-8")
+        run = subprocess.run([sys.executable, str(RUNNER), "--dry-run", "--prompt-file", str(attack)], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        plan = json.loads(run.stdout)
+        self.addCleanup(shutil.rmtree, Path(plan["paper"]).parent, True)
+        self.assertEqual(plan["command"][2], "from the file")
+        both = subprocess.run([sys.executable, str(RUNNER), "--dry-run", "--prompt-file", str(attack), "and an argument"], capture_output=True, text=True)
+        self.assertNotEqual(both.returncode, 0)
+
     def test_a_scaffolded_workspace_has_its_own_deny_rules(self) -> None:
         paper = Path(self.dry("--workspace", "init")["paper"])
         settings = json.loads((paper / ".claude/settings.json").read_text(encoding="utf-8"))
