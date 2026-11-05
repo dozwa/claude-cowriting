@@ -196,7 +196,7 @@ The CoWriting pane works in the terminal, in the VS Code extension and in the de
 
 | Command | What it does |
 |---|---|
-| `/cowrite:pane [party\|feedback\|live\|log\|scope\|progress]` | Opens the **CoWriting pane** (on that tab) with the keyboard in it. Click a persona's name to summon it, or its ✉ badge to read what it said. The number keys switch tabs, `w` turns live review on or off, `r` refreshes, `o` opens the newest unclassified input on the Feedback tab, `a`/`d`/`x`/`i` classify it as adopted/adapted/rejected/info, `y` starts a reply to it in the prompt box, `c` asks what you changed since, `Esc` goes back to the prompt |
+| `/cowrite:pane [party\|feedback\|live\|log\|scope\|progress]` | Opens the **CoWriting pane** (on that tab) with the keyboard in it. Click a persona's name to summon it, or its ✉ badge to read what it said. The number keys switch tabs, `w` turns live review on or off, `r` refreshes, `o` opens the newest unclassified input on the Feedback tab, `a`/`d`/`x`/`i` classify it as adopted/adapted/rejected/info, `y` starts a reply to it in the prompt box, `c` asks what you changed since, `m` has a persona remember what a discussion settled, `Esc` goes back to the prompt |
 | `/cowrite:watch [on\|off] [persona …\|all]` | **Live review** while you write (see below). Default watchers: Grammar Guy, Terminologist, Style Coach, Architect |
 | `/cowrite:ask <persona> <question>` | Talk to one persona directly, e.g. `/cowrite:ask terminologist is "sleep architecture" the usual term?` |
 | `/cowrite:brief [persona\|all] [text]` | Tell a persona what to look for **in this project**. Without text it interviews you and saves your answers; with text it saves them directly. Without arguments it lists all briefs. |
@@ -313,7 +313,7 @@ Each paper has a `party.md` file, written by you:
 
 The plugin attaches the matching sections to a persona's task every time it reviews, whether you summoned it, asked it a question, or it's watching live. `/cowrite:init` asks about the project and fills in `everyone`. After that you can brief a persona at any time: `/cowrite:brief <persona>` starts a short interview, or edit `party.md` directly. In the pane, 📋 marks the personas you've briefed.
 
-Each persona is a read-only subagent that looks at your text from one perspective. Each one gives hints and questions, never replacement text. The catalogue that ships with the plugin:
+Each persona is a subagent that looks at your text from one perspective. Each one gives hints and questions, never replacement text. Most can only read. The Librarian, the Style Coach and the Terminologist can also write notes to `notes/ai/`, and the Integrity Guardian, the Librarian and the Style Coach can run the plugin's tools in the shell. The guard holds for them as for Claude. The catalogue that ships with the plugin:
 
 | | Persona | Perspective |
 |---|---|---|

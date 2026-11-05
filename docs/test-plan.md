@@ -17,6 +17,7 @@ How the features in [tracker.md](tracker.md) get tested and how a result is reco
 | Python tools | `python3 -m unittest discover -s plugin/tests -p 'test_*.py'` | Nothing | CI |
 | Dev tools, including the suite's own judgement | `python3 -m unittest discover -s scripts -p 'test_*.py'` | Nothing | CI |
 | Real sessions: the guard attacks | `python3 scripts/throwaway_session.py --suite [CASE ...]` | Tokens | Each guard change, release |
+| Real screen: the pane in a real terminal | `python3 scripts/screen_suite.py` | tmux | Each UI change, release |
 
 To add an attack: write its prompt in `dev/attacks/`, say what must hold in `cases.json`, and add a row to the hook tests where the simulated engine can show it. The verdict comes from the copy on disk, the log and the disclosure, never from what the model reports.
 
