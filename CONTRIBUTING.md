@@ -32,6 +32,8 @@ claude plugin test plugin
 python3 -m unittest discover -s plugin/tests -p 'test_*.py'
 ```
 
+The road to the next release is tracked in [docs/tracker.md](docs/tracker.md), generated from `dev/tracker.json` by `python3 scripts/tracker.py`; the [test plan](docs/test-plan.md) says how results are recorded. A new skill, agent or tool needs a place in the tracker's feature map, or CI fails.
+
 A change to the manuscript guard needs a case in the guard test, denied or allowed. A change to `ailog.py` needs its line in `test_tools.py`: the disclosure is what an author signs.
 
 Hooks that take `$` must be `function` declarations at the top level of their file; the validator explains why. Everything that takes `$` (the mods API) lives in `plugin/hooks/register.tsx`: the plugin directory reads a mod's calls only through functions declared in the file that registers the hooks, and it blocks `$` handed to a function from another file. Pure logic goes in `plugin/hooks/core.ts`, `personas.ts` and `sprites.ts`, where the tests can reach it without the engine. Inside `register.tsx`, use the names `$`, `e` and `next` for hook parameters only. Python tools use the standard library only.

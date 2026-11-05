@@ -1,0 +1,1535 @@
+{
+  "target": "0.4.0",
+  "gate": [
+    "Every tier 1 and tier 1b feature passes on each surface that applies, and so does every acceptance criterion of their stories. This includes N1 to N4, so the UI consolidation is part of this release. Deferred only with a written reason.",
+    "Tier 2 should work: an open item does not block the release, but the changelog names it as a known gap. Tier 3 may wait.",
+    "Every requirement is met, or deferred with a reason. Outdated ones are rewritten.",
+    "Every finding is fixed, or accepted with a reason. Accepted limits are stated in the README.",
+    "The automated suites and `claude plugin validate` pass, and a manual run is recorded on all three surfaces.",
+    "Real use is recorded: the author's own paper for at least 2 weeks, and a think-aloud with 2 to 3 researchers."
+  ],
+  "findings": [
+    {
+      "id": 1,
+      "title": "The log is append-only by convention only: `ai-log/` is one of Claude's write places, is not on the sandbox deny list and is not an author file, so the comparison does not cover it",
+      "evidence": "`CLAUDE_WRITES` in `plugin/hooks/core.ts`; the \"ok\" list in `plugin/tests/cowriting.test.tsx`; `plugin/templates/workspace/.claude/settings.json`",
+      "why": "The README says append-only, and the disclosure is built from this log",
+      "status": "open"
+    },
+    {
+      "id": 2,
+      "title": "AI text is flagged only if the model marks it: unmarked prose in an answer is not detected",
+      "evidence": "`e.answer.includes(AI_TEXT_MARKER)` in `plugin/hooks/register.tsx`",
+      "why": "R1.1 and R1.4 depend on model behaviour, which has no tests today",
+      "status": "open"
+    },
+    {
+      "id": 3,
+      "title": "No warning for confidential material: only a rule line in the workspace `CLAUDE.md` exists",
+      "evidence": "Search over hooks, tools and template",
+      "why": "R6.1 promises a warning",
+      "status": "open"
+    },
+    {
+      "id": 4,
+      "title": "No per-institution disclosure template: fixed text that says to adapt it, and the skill helps by hand",
+      "evidence": "`plugin/tools/ailog.py`, disclosure skill",
+      "why": "R4.2 is only partly met",
+      "status": "open"
+    },
+    {
+      "id": 5,
+      "title": "Two requirements are out of date: R1.3 forbids corrected sentences, R2.2 lets Claude write to `literature/`",
+      "evidence": "`plugin/skills/language/SKILL.md`, `CLAUDE_WRITES`",
+      "why": "The list contradicts the product",
+      "status": "open"
+    },
+    {
+      "id": 6,
+      "title": "The README overstates \"read-only\": each persona is called a read-only subagent, but 3 have Write and 3 have Bash",
+      "evidence": "`plugin/agents/*.md`",
+      "why": "Doc fix, and the guard must hold for these personas",
+      "status": "open"
+    },
+    {
+      "id": 7,
+      "title": "Skill text has almost no automated coverage: 9 of the 11 skills checked are not named in the hook tests (`ailog.py` itself is tested)",
+      "evidence": "Search by name in `plugin/tests/cowriting.test.tsx`; a rough check",
+      "why": "These are the instructions behind most of the help the author sees",
+      "status": "open"
+    },
+    {
+      "id": 8,
+      "title": "Small doc gaps: `/cowrite:paper versioning` is missing from the skill's hint and description; the README command table omits `m` (Remember)",
+      "evidence": "`plugin/skills/paper/SKILL.md`, `README.md`",
+      "why": "Discoverability",
+      "status": "open"
+    }
+  ],
+  "features": [
+    {
+      "id": "F1",
+      "name": "Install: marketplace and zip",
+      "area": "Setup and workspace",
+      "tier": "2",
+      "impact": "Flow",
+      "reqs": [],
+      "automated": "Validation only",
+      "add": "M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F2",
+      "name": "`/cowrite:init`: five questions, scaffold",
+      "area": "Setup and workspace",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [
+        "R2.1",
+        "R3.1"
+      ],
+      "automated": "Scaffold tool",
+      "add": "S, M",
+      "skills": [
+        "init"
+      ],
+      "tools": [
+        "new_paper"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F3",
+      "name": "`/cowrite:paper`: open, recent, switch",
+      "area": "Setup and workspace",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "S",
+      "skills": [
+        "paper"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F4",
+      "name": "`/cowrite:paper upgrade [apply]`",
+      "area": "Setup and workspace",
+      "tier": "2",
+      "impact": "Trust",
+      "reqs": [
+        "R2.1"
+      ],
+      "automated": "Yes",
+      "add": "E",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F5",
+      "name": "With or without git, `versioning` switch",
+      "area": "Setup and workspace",
+      "tier": "2",
+      "impact": "Flow",
+      "reqs": [
+        "R3.3"
+      ],
+      "automated": "Yes",
+      "add": "S",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F6",
+      "name": "Word and ODT through pandoc",
+      "area": "Setup and workspace",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [],
+      "automated": "Mocked",
+      "add": "E (real pandoc)",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F7",
+      "name": "Plugin options",
+      "area": "Setup and workspace",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [],
+      "automated": "Partly",
+      "add": "U, M",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F8",
+      "name": "Guard layer 1: file tools by path",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R2.1"
+      ],
+      "automated": "Yes",
+      "add": "G",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F9",
+      "name": "Guard layer 2: shell patterns",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R2.1"
+      ],
+      "automated": "Yes, 14 denied cases and more",
+      "add": "G",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F10",
+      "name": "Guard layer 3: deny rules and sandbox",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R2.1",
+        "R2.2"
+      ],
+      "automated": "Settings file only",
+      "add": "G (real OS)",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F11",
+      "name": "Guard layer 4: comparison after a tool",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R2.1",
+        "R4.1"
+      ],
+      "automated": "Yes",
+      "add": "G",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F12",
+      "name": "Role contract, personas' ground rules",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R1.1",
+        "R1.2"
+      ],
+      "automated": "None for behaviour",
+      "add": "B",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F13",
+      "name": "`[AI-TEXT]`: mark, flag, list",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R1.4"
+      ],
+      "automated": "Flag only",
+      "add": "B, E",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F14",
+      "name": "Automatic log of prompts, answers, personas",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R3.1"
+      ],
+      "automated": "Yes",
+      "add": "E",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F15",
+      "name": "Log integrity (append-only)",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R3.1"
+      ],
+      "automated": "None",
+      "add": "G, and a decision",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F16",
+      "name": "Classification: pane, band, `/cowrite:annotate`",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R3.2"
+      ],
+      "automated": "Yes",
+      "add": "S, M",
+      "skills": [
+        "annotate"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F17",
+      "name": "Disclosure EN/DE, Markdown/LaTeX",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R4.1",
+        "R4.2"
+      ],
+      "automated": "Yes",
+      "add": "E",
+      "skills": [
+        "disclosure"
+      ],
+      "tools": [
+        "ailog"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F18",
+      "name": "Prompts appendix, with threads",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R4.1"
+      ],
+      "automated": "Yes",
+      "add": "E",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F19",
+      "name": "Autosave under the author's name",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R3.3"
+      ],
+      "automated": "Yes",
+      "add": "E (real git)",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F20",
+      "name": "`/cowrite:submit` checklist",
+      "area": "Integrity",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R4.1",
+        "R5.1"
+      ],
+      "automated": "None",
+      "add": "B, E",
+      "skills": [
+        "submit"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F21",
+      "name": "The 10 catalogue personas",
+      "area": "Review party",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R1.1",
+        "R7.3"
+      ],
+      "automated": "Sprites and metadata",
+      "add": "B (one each)",
+      "agents": [
+        "architect",
+        "clinician",
+        "grammar-guy",
+        "integrity-guardian",
+        "lay-reader",
+        "librarian",
+        "reviewer-2",
+        "statistics-nerd",
+        "style-coach",
+        "terminologist"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F22",
+      "name": "`/cowrite:summon`, `/cowrite:ask`",
+      "area": "Review party",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [
+        "R7.3"
+      ],
+      "automated": "Yes",
+      "add": "S",
+      "skills": [
+        "ask",
+        "summon"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F23",
+      "name": "`/cowrite:brief`: `party.md` reaches the persona",
+      "area": "Review party",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "B",
+      "skills": [
+        "brief"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F24",
+      "name": "`/cowrite:party`: roster, own experts",
+      "area": "Review party",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "E",
+      "skills": [
+        "party"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F25",
+      "name": "Reply, and the persona's answer as a colleague",
+      "area": "Review party",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [
+        "N3"
+      ],
+      "automated": "Log and links",
+      "add": "B, S, M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F26",
+      "name": "Remember",
+      "area": "Review party",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F27",
+      "name": "What did I change since?",
+      "area": "Review party",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R3.3"
+      ],
+      "automated": "Yes",
+      "add": "E",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F28",
+      "name": "`/cowrite:feedback`, `/cowrite:socratic`, `/cowrite:structure`",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R1.2",
+        "R7.2"
+      ],
+      "automated": "None",
+      "add": "B",
+      "skills": [
+        "feedback",
+        "socratic",
+        "structure"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F29",
+      "name": "`/cowrite:language`",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R1.3"
+      ],
+      "automated": "None",
+      "add": "B",
+      "skills": [
+        "language"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F30",
+      "name": "`/cowrite:explain`, glossary in `notes/ai/`",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.4"
+      ],
+      "automated": "None",
+      "add": "B",
+      "skills": [
+        "explain"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F31",
+      "name": "`/cowrite:consistency`",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.5"
+      ],
+      "automated": "None",
+      "add": "B (seeded errors)",
+      "skills": [
+        "consistency"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F32",
+      "name": "`/cowrite:sources`, The Librarian",
+      "area": "Assist skills and literature",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R5.1",
+        "R5.2",
+        "R5.3",
+        "R7.1"
+      ],
+      "automated": "None",
+      "add": "B",
+      "skills": [
+        "sources"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F33",
+      "name": "`verify_refs.py` against Crossref",
+      "area": "Assist skills and literature",
+      "tier": "1",
+      "impact": "Trust",
+      "reqs": [
+        "R5.1"
+      ],
+      "automated": "Yes",
+      "add": "E (live Crossref)",
+      "tools": [
+        "verify_refs"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F34",
+      "name": "Bibliography: BibTeX, CSL JSON, RIS, nbib",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R5.1"
+      ],
+      "automated": "Yes",
+      "add": "U (real exports)",
+      "tools": [
+        "bibliography"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F35",
+      "name": "Zotero local API and fallback",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.1"
+      ],
+      "automated": "Fallback",
+      "add": "M",
+      "tools": [
+        "zotero_search"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F36",
+      "name": "Obsidian search, `AI-Notes`",
+      "area": "Assist skills and literature",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.1"
+      ],
+      "automated": "None",
+      "add": "E, M",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F37",
+      "name": "Style Coach, `style_profile.py`",
+      "area": "Assist skills and literature",
+      "tier": "3",
+      "impact": "Extra",
+      "reqs": [],
+      "automated": "Tool",
+      "add": "B",
+      "tools": [
+        "style_profile"
+      ],
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F38",
+      "name": "Pane frame, tabs, keys, `Esc`",
+      "area": "Pane and interface",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "S, M",
+      "skills": [
+        "pane"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F39",
+      "name": "Party tab, cards, badges",
+      "area": "Pane and interface",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "S, M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F40",
+      "name": "Feedback tab and reading view",
+      "area": "Pane and interface",
+      "tier": "1",
+      "impact": "Flow",
+      "reqs": [
+        "R3.2",
+        "N1",
+        "N2",
+        "N4"
+      ],
+      "automated": "Yes",
+      "add": "S, M, H",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F41",
+      "name": "Log tab",
+      "area": "Pane and interface",
+      "tier": "3",
+      "impact": "Help",
+      "reqs": [
+        "R3.1"
+      ],
+      "automated": "Partly",
+      "add": "S",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F42",
+      "name": "Band above the prompt, status line",
+      "area": "Pane and interface",
+      "tier": "1b",
+      "impact": "Flow",
+      "reqs": [
+        "R3.2"
+      ],
+      "automated": "Yes",
+      "add": "S, M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F43",
+      "name": "Focus mode, `/cowrite:quiet`, progress line",
+      "area": "Pane and interface",
+      "tier": "3",
+      "impact": "Extra",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "S",
+      "skills": [
+        "quiet"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F44",
+      "name": "Usage meter",
+      "area": "Pane and interface",
+      "tier": "3",
+      "impact": "Extra",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F45",
+      "name": "`/cowrite:watch`: changed paragraphs, limits, logged",
+      "area": "Live review, scope, game",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R3.1"
+      ],
+      "automated": "Yes",
+      "add": "E, B",
+      "skills": [
+        "watch"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F46",
+      "name": "Scope tab, measured progress",
+      "area": "Live review, scope, game",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.5"
+      ],
+      "automated": "Yes",
+      "add": "S",
+      "skills": [
+        "scope"
+      ],
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    },
+    {
+      "id": "F47",
+      "name": "`/cowrite:scope check`, `/cowrite:scope edit`",
+      "area": "Live review, scope, game",
+      "tier": "2",
+      "impact": "Help",
+      "reqs": [
+        "R7.5"
+      ],
+      "automated": "Check only",
+      "add": "B, M",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F48",
+      "name": "XP, levels, achievements",
+      "area": "Live review, scope, game",
+      "tier": "3",
+      "impact": "Extra",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "U",
+      "status": {
+        "any": "untested"
+      }
+    },
+    {
+      "id": "F49",
+      "name": "Overreliance nudge",
+      "area": "Live review, scope, game",
+      "tier": "3",
+      "impact": "Extra",
+      "reqs": [],
+      "automated": "Yes",
+      "add": "M",
+      "status": {
+        "terminal": "untested",
+        "vscode": "untested",
+        "desktop": "untested"
+      }
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R1.1",
+      "text": "No manuscript prose from Claude",
+      "status": "partly",
+      "note": "Rule only: file writes are guarded, chat answers are not"
+    },
+    {
+      "id": "R1.2",
+      "text": "Allowed kinds of help: questions, critique, explanations, literature, overviews",
+      "status": "met",
+      "note": "Skills exist; quality untested"
+    },
+    {
+      "id": "R1.3",
+      "text": "Language feedback",
+      "status": "outdated",
+      "note": "Rewrite: corrected forms are allowed, stylistic rewrites are not"
+    },
+    {
+      "id": "R1.4",
+      "text": "An override is logged and marked",
+      "status": "partly",
+      "note": "Depends on the model writing the marker (finding 2)"
+    },
+    {
+      "id": "R2.1",
+      "text": "Manuscript read-only for Claude",
+      "status": "partly",
+      "note": "Layers exist and the README states their limits; real bypasses untested"
+    },
+    {
+      "id": "R2.2",
+      "text": "Where Claude may write",
+      "status": "outdated",
+      "note": "Rewrite to match `CLAUDE_WRITES` in `plugin/hooks/core.ts`"
+    },
+    {
+      "id": "R3.1",
+      "text": "Every prompt and answer logged, append-only",
+      "status": "partly",
+      "note": "Logging exists; append-only is not enforced (finding 1)"
+    },
+    {
+      "id": "R3.2",
+      "text": "The author annotates each input",
+      "status": "met",
+      "note": "Usability problems: see N1 to N4"
+    },
+    {
+      "id": "R3.3",
+      "text": "Git traceability of the writing process",
+      "status": "met",
+      "note": "Optional by the author's choice"
+    },
+    {
+      "id": "R4.1",
+      "text": "Disclosure generated from the log",
+      "status": "met",
+      "note": "Not yet checked against a real session"
+    },
+    {
+      "id": "R4.2",
+      "text": "Template per institution or journal",
+      "status": "partly",
+      "note": "Finding 4"
+    },
+    {
+      "id": "R5.1",
+      "text": "No invented references",
+      "status": "partly",
+      "note": "`verify_refs.py` is real; the model's obedience is rule only"
+    },
+    {
+      "id": "R5.2",
+      "text": "Summaries labelled, quotes with page numbers",
+      "status": "partly",
+      "note": "Rule only"
+    },
+    {
+      "id": "R5.3",
+      "text": "Plagiarism risks are flagged",
+      "status": "partly",
+      "note": "Integrity Guardian; rule only"
+    },
+    {
+      "id": "R6.1",
+      "text": "A warning when confidential material is about to go to the model",
+      "status": "open",
+      "note": "Finding 3"
+    },
+    {
+      "id": "R6.2",
+      "text": "Personal and research data follow the project's privacy rules",
+      "status": "open",
+      "note": "README warning only"
+    },
+    {
+      "id": "R7.1",
+      "text": "Literature search and maps",
+      "status": "met",
+      "note": "Quality untested"
+    },
+    {
+      "id": "R7.2",
+      "text": "Argument and structure check of the author's text",
+      "status": "met",
+      "note": "Quality untested"
+    },
+    {
+      "id": "R7.3",
+      "text": "Reviewer simulation: critical questions, no fixes",
+      "status": "met",
+      "note": "Quality untested"
+    },
+    {
+      "id": "R7.4",
+      "text": "Concept explainer and glossary",
+      "status": "met",
+      "note": "Quality untested"
+    },
+    {
+      "id": "R7.5",
+      "text": "Progress and consistency overview",
+      "status": "met",
+      "note": "Quality untested"
+    },
+    {
+      "id": "N1",
+      "text": "It is clear when a comment is saved",
+      "status": "open",
+      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+    },
+    {
+      "id": "N2",
+      "text": "Feedback text appears once",
+      "status": "open",
+      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+    },
+    {
+      "id": "N3",
+      "text": "A reply happens inside the thread in the pane",
+      "status": "open",
+      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+    },
+    {
+      "id": "N4",
+      "text": "The reading view has a clear hierarchy",
+      "status": "open",
+      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+    }
+  ],
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Claude cannot change my text",
+      "tier": "1",
+      "story": "I ask for edits to my manuscript, so that the text stays mine.",
+      "features": [
+        "F8",
+        "F9",
+        "F10",
+        "F11"
+      ],
+      "reqs": [
+        "R2.1",
+        "R2.2"
+      ],
+      "criteria": [
+        {
+          "id": "S1.1",
+          "text": "Every write attempt on an author file is refused, and the refusal names the file.",
+          "status": "untested"
+        },
+        {
+          "id": "S1.2",
+          "text": "Anything that gets through appears as a guard entry, and manuscript changes appear in the disclosure.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "I can sign the disclosure",
+      "tier": "1",
+      "story": "I generate it before submission, so that it is true.",
+      "features": [
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19"
+      ],
+      "reqs": [
+        "R3.1",
+        "R4.1"
+      ],
+      "criteria": [
+        {
+          "id": "S2.1",
+          "text": "Each prompt and answer of a session is in the log, with model and plugin version.",
+          "status": "untested"
+        },
+        {
+          "id": "S2.2",
+          "text": "Counts, categories, classifications and guard events match what happened.",
+          "status": "untested"
+        },
+        {
+          "id": "S2.3",
+          "text": "Unmarked AI prose and later log edits are either caught or stated as limits.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Claude helps without writing for me",
+      "tier": "1",
+      "story": "I ask for prose, so that I see the tool keeps me the author.",
+      "features": [
+        "F12",
+        "F13"
+      ],
+      "reqs": [
+        "R1.1",
+        "R1.4"
+      ],
+      "criteria": [
+        {
+          "id": "S3.1",
+          "text": "By default Claude declines and offers feedback or questions.",
+          "status": "untested"
+        },
+        {
+          "id": "S3.2",
+          "text": "If I insist, the text starts with `[AI-TEXT]`, is flagged, and is listed in the disclosure.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "References are real",
+      "tier": "1",
+      "story": "I ask for sources, so that I cite nothing invented.",
+      "features": [
+        "F32",
+        "F33",
+        "F34"
+      ],
+      "reqs": [
+        "R5.1",
+        "R5.2"
+      ],
+      "criteria": [
+        {
+          "id": "S4.1",
+          "text": "No reference is shown without a verified DOI or URL or a bibliography citekey; others read `UNVERIFIED`.",
+          "status": "untested"
+        },
+        {
+          "id": "S4.2",
+          "text": "Wrong DOIs show as `MISMATCH` or `NOT FOUND`.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Pre-submission check",
+      "tier": "1",
+      "story": "I run `/cowrite:submit` before a draft leaves, so that nothing open slips through.",
+      "features": [
+        "F20"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S5.1",
+          "text": "Seeded problems all appear.",
+          "status": "untested"
+        },
+        {
+          "id": "S5.2",
+          "text": "It reports findings and does not declare readiness.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Get feedback",
+      "tier": "1b",
+      "story": "I summon a persona, so that I see my text from its perspective.",
+      "features": [
+        "F22",
+        "F23"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S6.1",
+          "text": "One progress line, located findings, no replacement text, briefing applied.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S7",
+      "title": "Read it",
+      "tier": "1b",
+      "story": "I open an input, so that I can take it in without noise.",
+      "features": [
+        "F40"
+      ],
+      "reqs": [
+        "N2",
+        "N4"
+      ],
+      "criteria": [
+        {
+          "id": "S7.1",
+          "text": "The text appears once, as rendered Markdown.",
+          "status": "fail",
+          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+        },
+        {
+          "id": "S7.2",
+          "text": "The main action is visible without scrolling at the smallest supported pane.",
+          "status": "untested"
+        },
+        {
+          "id": "S7.3",
+          "text": "Choices, reply, comment, links and text have a clear order of importance.",
+          "status": "fail",
+          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+        }
+      ]
+    },
+    {
+      "id": "S8",
+      "title": "Decide what I did with it",
+      "tier": "1",
+      "story": "I classify an input, so that the record says what I did.",
+      "features": [
+        "F16",
+        "F40"
+      ],
+      "reqs": [
+        "R3.2",
+        "N1"
+      ],
+      "criteria": [
+        {
+          "id": "S8.1",
+          "text": "One key or click records it; it leaves the open list and the counts drop.",
+          "status": "untested"
+        },
+        {
+          "id": "S8.2",
+          "text": "It is clear when a comment is kept.",
+          "status": "fail",
+          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+        }
+      ]
+    },
+    {
+      "id": "S9",
+      "title": "Ask back",
+      "tier": "1b",
+      "story": "I reply to a persona, so that we can settle a point.",
+      "features": [
+        "F25"
+      ],
+      "reqs": [
+        "N3"
+      ],
+      "criteria": [
+        {
+          "id": "S9.1",
+          "text": "I type and read the exchange in the thread.",
+          "status": "fail",
+          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+        },
+        {
+          "id": "S9.2",
+          "text": "The persona answers as a colleague; the log keeps the links; the appendix says \"in reply to\".",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "Keep what was settled",
+      "tier": "2",
+      "story": "I use Remember, so that a persona keeps it for the next run.",
+      "features": [
+        "F26"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S10.1",
+          "text": "Nothing is written before I save; at most two lines; the proposal is logged.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "See what is open",
+      "tier": "1b",
+      "story": "I look at the pane or status line, so that I know what I still owe.",
+      "features": [
+        "F38",
+        "F39",
+        "F42"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S11.1",
+          "text": "All surfaces show the same count, which matches `ailog.py stats`.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "Start a paper",
+      "tier": "1b",
+      "story": "I have never used this tool or git, and want a first review.",
+      "features": [
+        "F1",
+        "F2",
+        "F5"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S12.1",
+          "text": "From the README alone I reach a first review, without help, in a time we set after the first trial.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "title": "Return to a paper",
+      "tier": "1b",
+      "story": "I open it from anywhere, so that I can continue where I was.",
+      "features": [
+        "F3"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S13.1",
+          "text": "The guard, log and pane all point at that paper.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "title": "Update safely",
+      "tier": "2",
+      "story": "I update the plugin, so that I get fixes without risk to my paper.",
+      "features": [
+        "F4"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S14.1",
+          "text": "`upgrade` lists the gaps; `apply` leaves the manuscript, `party.md` and `scope.md` unchanged.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S15",
+      "title": "Use my tools",
+      "tier": "2",
+      "story": "I write in LaTeX, Markdown or Word and export from my reference manager.",
+      "features": [
+        "F6",
+        "F34",
+        "F35",
+        "F36"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S15.1",
+          "text": "Each format is readable, counted and guarded.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S16",
+      "title": "Live hints",
+      "tier": "2",
+      "story": "I pause while writing, so that I get short hints without asking.",
+      "features": [
+        "F45"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S16.1",
+          "text": "Only changed paragraphs are sent; at most 3 hints, 1 review a minute, 20 an hour.",
+          "status": "untested"
+        },
+        {
+          "id": "S16.2",
+          "text": "Each review is logged, and no sentence is rewritten.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S17",
+      "title": "Think it through",
+      "tier": "2",
+      "story": "I use Socratic, structure, explain, language or consistency.",
+      "features": [
+        "F28",
+        "F29",
+        "F30",
+        "F31"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S17.1",
+          "text": "Each skill keeps to its form: for example one question at a time, or corrections with the rule.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S18",
+      "title": "Know my progress",
+      "tier": "2",
+      "story": "I look at Scope, so that I know how far the paper is.",
+      "features": [
+        "F46",
+        "F47"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S18.1",
+          "text": "Numbers match a hand count; AI checks are logged; ticks I set myself win.",
+          "status": "untested"
+        }
+      ]
+    },
+    {
+      "id": "S19",
+      "title": "Motivation without rewarding AI",
+      "tier": "3",
+      "story": "I look at Progress, so that my own writing is what counts.",
+      "features": [
+        "F48",
+        "F49"
+      ],
+      "reqs": [],
+      "criteria": [
+        {
+          "id": "S19.1",
+          "text": "XP comes only from my words and transparency; asking the AI earns nothing.",
+          "status": "untested"
+        }
+      ]
+    }
+  ],
+  "manual": [
+    {
+      "id": "M-terminal",
+      "name": "Checklist S1 to S19 in the terminal",
+      "status": "untested",
+      "blocking": true
+    },
+    {
+      "id": "M-vscode",
+      "name": "Checklist S1 to S19 in VS Code",
+      "status": "untested",
+      "blocking": true
+    },
+    {
+      "id": "M-desktop",
+      "name": "Checklist S1 to S19 in the desktop app's Code tab",
+      "status": "untested",
+      "blocking": true
+    },
+    {
+      "id": "H-paper",
+      "name": "A real paper for at least 2 weeks, with a short diary",
+      "status": "untested",
+      "blocking": true
+    },
+    {
+      "id": "H-thinkaloud",
+      "name": "Think-aloud with 2 to 3 researchers: S12, S6 to S9",
+      "status": "untested",
+      "blocking": true
+    }
+  ],
+  "history": []
+}

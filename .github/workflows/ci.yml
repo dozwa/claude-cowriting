@@ -17,6 +17,17 @@ jobs:
       - run: git config --global user.name ci && git config --global user.email ci@example.org
       - run: python3 -m unittest discover -s plugin/tests -p 'test_*.py' -v
 
+  tracker:
+    name: Release tracker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - run: python3 scripts/tracker.py check
+
   plugin:
     name: Plugin hooks
     runs-on: ubuntu-latest

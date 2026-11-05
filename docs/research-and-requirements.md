@@ -46,6 +46,8 @@ The Leibniz Association recommendation (Nov 2024) adds that AI output has **no s
 
 ## 3. Requirements
 
+The original list, kept as written. The current state of each requirement, and the new ones from testing, are maintained in the [tracker](tracker.md).
+
 ### R1 Role contract: Claude assists, never authors
 - R1.1 Claude does not produce prose meant for the manuscript: no paragraphs, rewrites or "improved versions".
 - R1.2 Allowed: questions (Socratic), critique and diagnosis of the user's text, structural and argument feedback, explaining concepts, finding and summarising literature, checklists, overviews (concept maps, argument maps, outlines of *the literature*, not of the user's text).
@@ -124,3 +126,7 @@ Noted after testing 0.3.5 in VS Code (2026-11-04). The feature set is ahead of i
 4. **Then build**, story by story, against the criteria; the hooks tests cover each criterion that a test can reach, the rest is a manual check on the three surfaces, written down.
 
 No new features in the meantime. The parked items (human-first folder layout, removal of the unused language option) wait behind this.
+
+### Where this is tracked: the road to 0.4.0
+
+Steps 1 to 3 are now kept in the [tracker](tracker.md): features, requirements, user stories, acceptance criteria and results. How they are tested is in the [test plan](test-plan.md). **For 0.4.0, tier 1 features must work and tier 2 features should**, and real use must be on record: `python3 scripts/tracker.py gate` lists what still stands in the way.
