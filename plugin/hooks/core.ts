@@ -289,7 +289,10 @@ export const computeStats = (entries: readonly LogEntry[], now: Date): Stats => 
 //    A change is logged as a `guard` entry (see `changedFiles`), shown to the author, and listed
 //    in the disclosure. What layer 2 misses, layer 3 records.
 
-/** Where Claude may write inside a paper, relative to its root: folders and single files. */
+/**
+ * Where Claude may write inside a paper, relative to its root: folders and single files.
+ * `ai-log` is listed so it isn't taken for the author's files; it may only grow (see `bashRewritesLog`).
+ */
 export const CLAUDE_WRITES = {
   folders: ['notes/ai', 'ai-log', 'disclosure', 'party', '.cowriting', 'build'],
   files: ['scope.md'],
@@ -445,8 +448,41 @@ export const GUARD_MESSAGE =
 /** The refusal for any other file of the author's: it names the file and where Claude may write. */
 export const authorGuardMessage = (file: string): string =>
   `CoWriting: ${file} belongs to the author of this paper and is not changed by Claude. ` +
-  `Claude writes only in ${CLAUDE_WRITES.folders.filter(f => f !== 'build' && f !== '.cowriting').map(f => `${f}/`).join(', ')} ` +
+  `Claude writes only in ${CLAUDE_WRITES.folders.filter(f => f !== 'build' && f !== '.cowriting' && f !== 'ai-log').map(f => `${f}/`).join(', ')} ` +
   `and ${CLAUDE_WRITES.files.join(', ')}; ask the author to make the change themselves.`
+
+// The AI log may only grow. The plugin and `ailog.py` append to it; nothing else changes what is
+// already there. File tools are refused, a shell command is refused as far as its text shows, and
+// after every tool call the log is compared by content (`rewrittenLogFiles`): what was rewritten is
+// restored, and that is logged and disclosed. The OS sandbox can't help here: it has no "append only".
+
+const LOG_FOLDER = 'ai-log'
+
+export const LOG_GUARD_MESSAGE =
+  'CoWriting: the AI log (ai-log/) is append-only: it is the record the author signs a disclosure from. ' +
+  'The plugin writes it; annotations go through ailog.py annotate. Nothing that is already in it may be changed or removed.'
+
+/** Does this path name the paper's log folder or lie in it? A path the shell has yet to expand counts if it says `ai-log`. */
+export const isLogPath = (path: string, root: string): boolean => {
+  const segs = segmentsOf(path).map(s => s.toLowerCase())
+  if (!isRooted(path)) return segs.includes(LOG_FOLDER)
+  const base = [...segmentsOf(root).map(s => s.toLowerCase()), LOG_FOLDER]
+  return segs.length >= base.length && base.every((s, i) => s === segs[i])
+}
+
+// `>>` and its target; `(?<!>)` so the second `>` of a pair doesn't start a match of its own
+const APPEND = /(?<!>)>>\s*['"]?([^\s'"&|;)]+)['"]?/g
+
+/**
+ * Would this shell command do anything to the log but append to it, as far as its text shows?
+ * An append (`>> ai-log/x.jsonl`) passes. `ailog.py annotate` names no such folder, so it passes too.
+ */
+export const bashRewritesLog = (command: string, isLog: (path: string) => boolean): boolean =>
+  bashWritesTo(command.replace(APPEND, (whole, target: string) => (isLog(target) ? '' : whole)), isLog, [LOG_FOLDER])
+
+/** The log files whose earlier content did not survive: changed or removed. A file that only grew, or is new, is fine. */
+export const rewrittenLogFiles = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>
+  Object.keys(before).filter(f => after[f] === undefined || !after[f]!.startsWith(before[f]!)).sort()
 
 /** The author's files by relative path → `mtime:size`, as they were at one moment. */
 export type Fingerprint = Readonly<Record<string, string>>

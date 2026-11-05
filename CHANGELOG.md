@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+- **The AI log only grows.** It used to be append-only by convention. File tools and shell commands that would change what is already in `ai-log/` are now refused, and after every tool call the log is compared by content: a rewrite is undone, the altered version is kept in `.cowriting/log-rewrites/`, and the attempt is shown and listed in the disclosure. `/cowrite:paper upgrade apply` brings the new rule line to an existing workspace's `CLAUDE.md`. The README states the limits.
+
 ## 0.3.5 (2026-11-04)
 
 - **Feedback reads as Markdown, with the buttons on top.** An opened input on the Feedback tab was drawn as raw text, so a persona's headings, bold and tables showed as `##`, `**` and `|`, and in the VS Code pane a long report pushed the choices out of reach. The report, Claude's words and the diff summary are now Markdown elements, and the four choices, Reply, "What did I change since?" and the comment field sit above the text.

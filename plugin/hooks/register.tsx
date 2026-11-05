@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Count, FocusMode, GameFile, LiveHint, LogEntry, Paper, PointStatus, PromptEntry, Reading, ReadingState, RecentTurn, Review, ScopePoint, ScopeProgress, ScopeSection, Snapshot, Stage, Tab, ThreadLink, Usage, WatchState } from '../types'
-import { absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, bashTouchesManuscript, bashWritesTo, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, manuscriptParents, manuscriptPathsIn, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
+import { LOG_GUARD_MESSAGE, bashRewritesLog, isLogPath, rewrittenLogFiles, absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, bashTouchesManuscript, bashWritesTo, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, manuscriptParents, manuscriptPathsIn, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
 import type { FileChange, Fingerprint, Paragraph } from './core'
 import { CUSTOM_TOOLS, customDescription, customPersonas, DEFAULT_PARTY, isCustomId, parsePersonaFile, partyPersonas, personaById, personaFileSkeleton, PERSONAS, setCustomPersonas } from './personas'
 import type { CustomPersona, Persona } from './personas'
@@ -213,6 +213,30 @@ export function appendLog($: Engine, root: string, entry: LogEntry): Promise<voi
     const before = (await $.fs.exists(path)) ? await $.fs.read(path) : ''
     const sep = before === '' || before.endsWith('\n') ? '' : '\n'
     await $.fs.write(path, `${before}${sep}${JSON.stringify(stamped)}\n`)
+  })
+}
+
+/** The log's files as they are now, by content, in turn with the plugin's own appends. */
+export async function snapshotLog($: Engine, root: string): Promise<Record<string, string>> {
+  const dir = join(root, 'ai-log')
+  if (!(await $.fs.exists(dir))) return {}
+  return withLog(root, async () => {
+    const out: Record<string, string> = {}
+    for (const entry of await $.fs.list(dir)) {
+      if (entry.kind === 'file' && entry.name.endsWith('.jsonl')) out[`ai-log/${entry.name}`] = await $.fs.read(join(dir, entry.name))
+    }
+    return out
+  })
+}
+
+/** Put rewritten log files back as they were; what they had become is kept beside the paper's state. */
+export async function restoreLog($: Engine, root: string, files: readonly string[], before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): Promise<void> {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  await withLog(root, async () => {
+    for (const file of files) {
+      if (after[file] !== undefined) await $.fs.write(join(root, '.cowriting', 'log-rewrites', `${stamp}-${file.split('/').pop()}`), after[file]!)
+      await $.fs.write(join(root, file), before[file]!)
+    }
   })
 }
 
@@ -2274,7 +2298,7 @@ async function summarizeChanges($: Engine, cfg: Config): Promise<void> {
 }
 
 /** A change to the author's files during a tool call: logged, shown, and from then on in the disclosure. */
-async function reportGuard($: Engine, cfg: Config, paper: Paper, tool: string, input: string, files: string[]): Promise<void> {
+async function reportGuard($: Engine, cfg: Config, paper: Paper, tool: string, input: string, files: string[], message?: string): Promise<void> {
   await appendLog($, paper.root, {
     type: 'guard',
     ts: new Date().toISOString(),
@@ -2285,7 +2309,7 @@ async function reportGuard($: Engine, cfg: Config, paper: Paper, tool: string, i
     input,
     files,
   }).catch(() => undefined)
-  $.ui.toast(`⚠ ${files.join(', ')} changed while ${tool} ran. Logged; ${paper.versioning === 'none' ? 'check the file' : 'check git diff'}.`)
+  $.ui.toast(message ?? `⚠ ${files.join(', ')} changed while ${tool} ran. Logged; ${paper.versioning === 'none' ? 'check the file' : 'check git diff'}.`)
   await update($, bandHiddenAtom, () => false)
   await refresh($, cfg).catch(() => undefined)
 }
@@ -2756,6 +2780,8 @@ export const register: Register = (on, options) => {
     const paper = READ_ONLY_TOOLS.has(tool) ? null : await findPaper($).catch(() => null)
     if (paper !== null && (isFileWrite || tool === 'Bash')) {
       const cwd = await $.session.cwd()
+      const isLog = (target: string) => isLogPath(absolutePath(cwd, target), paper.root)
+      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog)) return { deny: LOG_GUARD_MESSAGE }
       if (isFileWrite) {
         const file = authorFileOf(absolutePath(cwd, path), paper.root)
         if (file !== null) return { deny: authorGuardMessage(file) }
@@ -2784,7 +2810,15 @@ export const register: Register = (on, options) => {
     // while this call ran is recorded, shown and disclosed, so the git history can be read against it.
     if (paper === null) return next(e)
     const before = await fingerprintAuthorFiles($, paper).catch(() => null)
+    const logBefore = await snapshotLog($, paper.root).catch(() => null)
     const result = await next(e)
+    // the log may only grow: what a call rewrote anyway, however it got past the checks above, goes back
+    const logAfter = logBefore === null ? null : await snapshotLog($, paper.root).catch(() => null)
+    const rewritten = logBefore === null || logAfter === null ? [] : rewrittenLogFiles(logBefore, logAfter)
+    if (rewritten.length > 0) {
+      await restoreLog($, paper.root, rewritten, logBefore!, logAfter!).catch(() => undefined)
+      void reportGuard($, cfg, paper, tool, guardInputOf(tool, input), rewritten, `⚠ ${tool} rewrote the AI log (${rewritten.join(', ')}). It is restored and the attempt is logged; the altered copy is in .cowriting/log-rewrites/.`)
+    }
     if (before === null) return result
     const after = await fingerprintAuthorFiles($, paper).catch(() => null)
     const files = after === null ? [] : changedFiles(before, after)

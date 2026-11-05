@@ -137,6 +137,11 @@ def manuscript_files(event: dict) -> list[str]:
     return [f for f in event.get("files", []) if f.lower().startswith("manuscript/")]
 
 
+def log_files(event: dict) -> list[str]:
+    """The AI log's files among a guard event's files: a rewrite that was restored, which the disclosure must list."""
+    return [f for f in event.get("files", []) if f.lower().startswith("ai-log/")]
+
+
 def append(root: Path, entry: dict) -> None:
     now = dt.datetime.now(dt.timezone.utc)
     path = root / "ai-log" / f"{now:%Y-%m}.jsonl"
@@ -308,6 +313,12 @@ def cmd_disclosure(root: Path, args) -> None:
         if de else
         "Each of these changes was reviewed; what remained in the text is declared above or under [AI-TEXT]."
     )
+    log_head = "Versuche, das KI-Protokoll nachträglich zu ändern" if de else "Attempts to change the AI log afterwards"
+    log_note = (
+        "Das Protokoll wurde jeweils wiederhergestellt; die veränderte Fassung liegt unter .cowriting/log-rewrites/."
+        if de else
+        "The log was restored each time; the altered version is kept in .cowriting/log-rewrites/."
+    )
     none = "Keine." if de else "None."
     examples_head = "Beispielhafte Anfragen" if de else "Example prompts"
     resp = (
@@ -317,6 +328,7 @@ def cmd_disclosure(root: Path, args) -> None:
     )
     # only the manuscript is declared; a changed bibliography or setting is in the log, not the register
     guard_lines = [f"{g['ts'][:10]}: {g.get('tool', '?')} – {', '.join(manuscript_files(g))}" for g in guards if manuscript_files(g)]
+    log_lines = [f"{g['ts'][:10]}: {g.get('tool', '?')} – {', '.join(log_files(g))}" for g in guards if log_files(g)]
 
     if fmt == "md":
         out = [f"# {title}", "", intro, "", "| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
@@ -333,6 +345,8 @@ def cmd_disclosure(root: Path, args) -> None:
         out += [f"- {t['prompt']['ts'][:10]}: {squash(t['prompt'].get('text', ''), 120)}" for t in ai_text] or [none]
         out += ["", f"## {guard_head}", ""]
         out += [f"- {line}" for line in guard_lines] + ([guard_note] if guard_lines else []) or [none]
+        out += ["", f"## {log_head}", ""]
+        out += [f"- {line}" for line in log_lines] + ([log_note] if log_lines else []) or [none]
         out += ["", f"*{resp}*", ""]
     else:
         e = tex_escape
@@ -354,6 +368,11 @@ def cmd_disclosure(root: Path, args) -> None:
         out += [f"\\subsection*{{{e(guard_head)}}}"]
         if guard_lines:
             out += ["\\begin{itemize}"] + [f"  \\item {e(line)}" for line in guard_lines] + ["\\end{itemize}", e(guard_note)]
+        else:
+            out.append(e(none))
+        out += [f"\\subsection*{{{e(log_head)}}}"]
+        if log_lines:
+            out += ["\\begin{itemize}"] + [f"  \\item {e(line)}" for line in log_lines] + ["\\end{itemize}", e(log_note)]
         else:
             out.append(e(none))
         out += ["", f"\\textit{{{e(resp)}}}", ""]

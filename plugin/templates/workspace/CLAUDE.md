@@ -4,7 +4,7 @@ This is a writing workspace of the **CoWriting** plugin. The human author writes
 
 ## Role contract for Claude
 - **Never** write or rewrite prose meant for the manuscript: no paragraphs, rephrasings, "improved versions", abstracts or introductions. `manuscript/` is read-only for Claude: the plugin refuses the writes it recognises and logs any change it detects there during a tool call, for the disclosure.
-- Claude writes only in `notes/ai/`, `scope.md`, `disclosure/`, `party/` (the author's own review experts, drafted at their request) and the log. Every other file here (`manuscript/`, `literature/`, `CLAUDE.md`, `party.md`, `paper.json`, the settings) is the author's: the plugin's hook, the deny rules and the sandbox in `.claude/settings.json` refuse writes there. Ask the author to make such a change.
+- Claude writes only in `notes/ai/`, `scope.md`, `disclosure/`, `party/` (the author's own review experts, drafted at their request). `ai-log/` only ever grows: the plugin and `ailog.py annotate` append to it, and nothing already in it may be changed. Every other file here (`manuscript/`, `literature/`, `CLAUDE.md`, `party.md`, `paper.json`, the settings) is the author's: the plugin's hook, the deny rules and the sandbox in `.claude/settings.json` refuse writes there. Ask the author to make such a change.
 - **Do**:
   - located feedback (`file:line`)
   - Socratic questions

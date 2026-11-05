@@ -64,6 +64,13 @@
       "evidence": "`plugin/skills/paper/SKILL.md`, `README.md`",
       "why": "Discoverability",
       "status": "open"
+    },
+    {
+      "id": 9,
+      "title": "The guard can refuse harmless shell commands: a long script that only mentioned the word manuscript in its text, and wrote elsewhere, was refused during plugin development on 2026-11-05. The exact trigger is not yet pinned down",
+      "evidence": "Observed in a session with the plugin installed; refusal text was the GUARD_MESSAGE of `plugin/hooks/core.ts`",
+      "why": "False alarms teach authors and Claude to work around the guard. To reproduce under test type G",
+      "status": "open"
     }
   ],
   "features": [
@@ -308,7 +315,7 @@
       "automated": "None",
       "add": "G, and a decision",
       "status": {
-        "any": "untested"
+        "any": "testing"
       }
     },
     {
@@ -958,7 +965,7 @@
       "id": "R3.1",
       "text": "Every prompt and answer logged, append-only",
       "status": "partly",
-      "note": "Logging exists; append-only is not enforced (finding 1)"
+      "note": "Logging exists; append-only guard built, not yet attacked in a real session (finding 1)"
     },
     {
       "id": "R3.2",
@@ -1531,5 +1538,23 @@
       "blocking": true
     }
   ],
-  "history": []
+  "history": [
+    {
+      "date": "2026-11-05",
+      "id": "F15",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "any",
+      "commit": "af82bb3",
+      "note": "Guard built; passes in the test harness only. Real-session attack still open"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R3.1",
+      "status": "partly",
+      "version": "0.3.5",
+      "commit": "af82bb3",
+      "note": "Logging exists; append-only guard built, not yet attacked in a real session (finding 1)"
+    }
+  ]
 }

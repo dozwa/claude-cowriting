@@ -8,7 +8,10 @@ import {
   advanceGame,
   authorFileOf,
   autosaveMessage,
+  bashRewritesLog,
   bashTouchesManuscript,
+  isLogPath,
+  rewrittenLogFiles,
   bashWritesTo,
   briefFor,
   categoryFor,
@@ -419,6 +422,92 @@ test('a manuscript change during a tool call is logged as a guard event and show
   await $.tool.call({ tool: 'Read', file_path: `${ROOT}/notes/ai/x.md` })
   await new Promise(r => setTimeout(r, 5))
   expect(logOf().filter(e => e.type === 'guard').length).toBe(1)
+})
+
+test('the AI log may only grow: refused where the text shows it, restored where it does not', async ($, on) => {
+  const log = `${ROOT}/ai-log/2026-10.jsonl`
+  const first = '{"type":"prompt","id":"p1","ts":"2026-10-01T10:00:00Z","text":"what I really asked"}\n'
+  const files = paperFiles()
+  files.set(log, first)
+  workspace(on, files)
+  on('fs.stat', (_: unknown, e: { path: string }) => ({
+    value: { kind: 'file', size: files.get(e.path)?.length ?? 0, mtimeMs: 0, isLink: false },
+  }))
+  const annotation = '{"type":"annotation","ref":"p1","use":"info"}\n'
+  const scripts: Record<string, (() => void) | undefined> = {
+    'python3 tidy.py': () => files.set(log, '{"type":"prompt","id":"p1","text":"something nicer"}\n'),
+    'python3 grow.py': () => files.set(log, `${files.get(log)}${annotation}`),
+    'python3 gone.py': () => files.delete(log),
+    'python3 ailog.py annotate last --use info': () => files.set(log, `${files.get(log)}${annotation}`),
+    'echo x >> ai-log/2026-10.jsonl': () => files.set(log, `${files.get(log)}x\n`),
+  }
+  on('tool.call', (_: unknown, e: { command?: string }) => {
+    scripts[e.command ?? '']?.()
+    return { result: {} }
+  })
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+
+  // the pure rules
+  const isLog = (p: string) => isLogPath(absolutePath(ROOT, p), ROOT)
+  for (const denied of [
+    'echo x > ai-log/2026-10.jsonl',
+    "sed -i '' 's/a/b/' ai-log/2026-10.jsonl",
+    'rm ai-log/2026-10.jsonl',
+    'rm -rf ai-log',
+    'mv ai-log/2026-10.jsonl notes/ai/',
+    'cd ai-log && echo x > 2026-10.jsonl',
+    'cd ai-log && echo x >> 2026-10.jsonl',
+    'git checkout -- ai-log',
+    'echo x >> ai-log/a.jsonl; rm ai-log/a.jsonl',
+    'echo x > $DIR/ai-log/a.jsonl',
+    'echo x > AI-LOG/a.jsonl',
+  ]) expect(bashRewritesLog(denied, isLog), denied).toBe(true)
+  for (const allowed of [
+    'echo x >> ai-log/2026-10.jsonl',
+    'cat ai-log/2026-10.jsonl',
+    'grep -n adopted ai-log/*.jsonl',
+    'git log -- ai-log',
+    'python3 "$ROOT/tools/ailog.py" annotate last --use info',
+    'echo x > notes/ai/x.md',
+  ]) expect(bashRewritesLog(allowed, isLog), allowed).toBe(false)
+  expect(rewrittenLogFiles({ a: 'one\n' }, { a: 'one\ntwo\n', b: 'new\n' })).toEqual([])
+  expect(rewrittenLogFiles({ a: 'one\n', b: 'x' }, { a: 'uno\n' })).toEqual(['a', 'b'])
+
+  // file tools are refused
+  for (const tool of ['Write', 'Edit']) {
+    const refused = await $.tool.call({ tool, file_path: 'ai-log/2026-10.jsonl' })
+    expect(refused.deny).toContain('append-only')
+  }
+  expect((await $.tool.call({ tool: 'Write', file_path: 'notes/ai/x.md' })).deny).toBeUndefined()
+  expect((await $.tool.call({ tool: 'Bash', command: 'echo x > ai-log/2026-10.jsonl' })).deny).toContain('append-only')
+  expect(files.get(log)).toBe(first)
+
+  // growing is fine and reports nothing
+  // a guard entry goes into this month's file, whichever file was rewritten
+  const guardsOf = () => [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v)).filter(e => e.type === 'guard')
+  for (const command of ['python3 grow.py', 'python3 ailog.py annotate last --use info', 'echo x >> ai-log/2026-10.jsonl']) {
+    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
+  }
+  await new Promise(r => setTimeout(r, 5))
+  expect(guardsOf().length).toBe(0)
+  const grown = files.get(log)!
+
+  // a rewrite the text doesn't show goes back, is logged, and the altered copy is kept
+  await $.tool.call({ tool: 'Bash', command: 'python3 tidy.py' })
+  for (let i = 0; i < 50 && guardsOf().length === 0; i++) await new Promise(r => setTimeout(r, 1))
+  expect(files.get(log)!.startsWith(grown)).toBe(true)
+  const guard = guardsOf()[0]
+  expect(guard?.type === 'guard' && guard.files).toEqual(['ai-log/2026-10.jsonl'])
+  const kept = [...files.keys()].filter(k => k.startsWith(`${ROOT}/.cowriting/log-rewrites/`))
+  expect(kept.length).toBe(1)
+  expect(files.get(kept[0]!)).toContain('something nicer')
+
+  // so does a deleted file
+  const beforeDelete = files.get(log)!
+  await $.tool.call({ tool: 'Bash', command: 'python3 gone.py' })
+  for (let i = 0; i < 50 && guardsOf().length < 2; i++) await new Promise(r => setTimeout(r, 1))
+  expect(files.get(log)!.startsWith(beforeDelete)).toBe(true)
+  expect(guardsOf().length).toBe(2)
 })
 
 test('log writes of one paper run one after another, in order', async () => {
