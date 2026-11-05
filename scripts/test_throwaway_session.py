@@ -1,4 +1,8 @@
-"""Tests for the throwaway session runner. No session is started: every run is a dry run."""
+"""Tests for the throwaway copies. No session is started: every run is a dry run.
+
+That the session stays inside its copy is a behaviour only a real session can show: see
+the g0-containment case in dev/attacks/cases.json.
+"""
 from __future__ import annotations
 
 import json
@@ -14,58 +18,57 @@ RUNNER = HERE / "throwaway_session.py"
 REPO = HERE.parent
 
 
+def tree(folder: Path) -> dict[str, bytes]:
+    return {p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+
+
 class DryRun(unittest.TestCase):
-    def dry(self, *args: str) -> dict:
-        run = subprocess.run([sys.executable, str(RUNNER), "--dry-run", *args, "the prompt"], capture_output=True, text=True)
+    def dry(self, *args: str) -> Path:
+        run = subprocess.run([sys.executable, str(RUNNER), "--dry-run", *args], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
-        plan = json.loads(run.stdout)
-        self.addCleanup(shutil.rmtree, Path(plan["paper"]).parent, True)
-        return plan
+        paper = Path(json.loads(run.stdout)["paper"])
+        self.addCleanup(shutil.rmtree, paper.parent, True)
+        return paper
 
     def test_every_run_gets_a_new_copy_outside_the_repository(self) -> None:
-        one, two = Path(self.dry()["paper"]).resolve(), Path(self.dry()["paper"]).resolve()
+        one, two = self.dry("p").resolve(), self.dry("p").resolve()
         self.assertNotEqual(one, two)
         for paper in (one, two):
             self.assertFalse(paper.is_relative_to(REPO))
             self.assertTrue((paper / "paper.json").exists())
-            self.assertTrue((paper / "ai-log").is_dir())
 
-    def test_the_session_is_sandboxed_with_no_way_out_and_the_prompt_survives(self) -> None:
-        command = self.dry("--model", "haiku")["command"]
-        self.assertEqual(command[:3], ["claude", "-p", "the prompt"])  # before the flag that would swallow it
-        settings = json.loads(command[command.index("--settings") + 1])
-        self.assertEqual(settings["sandbox"], {"enabled": True, "allowUnsandboxedCommands": False})
-        self.assertEqual(command[command.index("--plugin-dir") + 1], str(REPO / "plugin"))
+    def test_changing_the_copy_leaves_the_demo_as_it_was(self) -> None:
+        demo = REPO / "examples/demo-paper"
+        before = tree(demo)
+        paper = self.dry("p")
+        (paper / "manuscript/main.md").write_text("changed", encoding="utf-8")
+        self.assertEqual(tree(demo), before)
 
-    def test_a_prompt_can_come_from_a_file_but_not_from_both(self) -> None:
-        folder = tempfile.TemporaryDirectory()
-        self.addCleanup(folder.cleanup)
-        attack = Path(folder.name) / "attack.txt"
-        attack.write_text("from the file", encoding="utf-8")
-        run = subprocess.run([sys.executable, str(RUNNER), "--dry-run", "--prompt-file", str(attack)], capture_output=True, text=True)
-        self.assertEqual(run.returncode, 0, run.stderr)
-        plan = json.loads(run.stdout)
-        self.addCleanup(shutil.rmtree, Path(plan["paper"]).parent, True)
-        self.assertEqual(plan["command"][2], "from the file")
-        both = subprocess.run([sys.executable, str(RUNNER), "--dry-run", "--prompt-file", str(attack), "and an argument"], capture_output=True, text=True)
-        self.assertNotEqual(both.returncode, 0)
-
-    def test_a_scaffolded_workspace_has_its_own_deny_rules(self) -> None:
-        paper = Path(self.dry("--workspace", "init")["paper"])
-        settings = json.loads((paper / ".claude/settings.json").read_text(encoding="utf-8"))
-        self.assertTrue(settings["sandbox"]["enabled"])
-        self.assertIn("./manuscript", settings["sandbox"]["filesystem"]["denyWrite"])
+    def test_a_scaffolded_workspace_is_a_paper_with_the_demos_text(self) -> None:
+        paper = self.dry("--workspace", "init", "p")
+        self.assertTrue((paper / "paper.json").exists())
+        self.assertTrue((paper / ".claude/settings.json").exists())
+        self.assertEqual((paper / "manuscript/main.md").read_bytes(), (REPO / "examples/demo-paper/manuscript/main.md").read_bytes())
 
     def test_a_seed_file_lands_in_the_copy_and_may_not_leave_it(self) -> None:
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         seed = Path(folder.name) / "seed.jsonl"
         seed.write_text("{}\n", encoding="utf-8")
-        paper = Path(self.dry("--add", str(seed), "ai-log/2026-10.jsonl")["paper"])
+        paper = self.dry("--add", str(seed), "ai-log/2026-10.jsonl", "p")
         self.assertEqual((paper / "ai-log/2026-10.jsonl").read_text(encoding="utf-8"), "{}\n")
         run = subprocess.run([sys.executable, str(RUNNER), "--dry-run", "--add", str(seed), "../../escaped", "p"], capture_output=True, text=True)
         self.assertNotEqual(run.returncode, 0)
-        self.assertIn("inside the copy", run.stderr)
+        self.assertFalse((paper.parent.parent / "escaped").exists())
+
+    def test_it_asks_for_exactly_one_prompt(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        attack = Path(folder.name) / "attack.txt"
+        attack.write_text("from the file", encoding="utf-8")
+        self.dry("--prompt-file", str(attack))
+        for args in (["--dry-run"], ["--dry-run", "--prompt-file", str(attack), "and an argument"]):
+            self.assertNotEqual(subprocess.run([sys.executable, str(RUNNER), *args], capture_output=True).returncode, 0)
 
 
 if __name__ == "__main__":

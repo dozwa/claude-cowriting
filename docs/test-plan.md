@@ -4,6 +4,22 @@ How the features in [tracker.md](tracker.md) get tested and how a result is reco
 
 **Release rule:** tier 1 and 1b features must work, tier 2 should work, tier 3 may wait, and real use must be on record. 0.4.0 goes out when `python3 scripts/tracker.py gate` passes and the author decides to release. The full rules are at the top of the tracker.
 
+## Rules for tests
+
+- **Every test we run joins the suite**, so it can be repeated as the plugin changes. Only what needs a person stays manual (types M and H).
+- **Tests check behaviour, not implementation.** They say what the author or the model can observe: whether a call ran, what the files hold, what the log and the disclosure say. They don't call the guard's internal functions, inspect flags or match its wording, so the guard can be rebuilt without touching them.
+- **A known bug is written as the behaviour we want**, tied to its finding: `stillBroken` in the hook tests, `known` in `dev/attacks/cases.json`. It stays visible and fails loudly once fixed, so the marker goes.
+- **What wasn't put to the test isn't a pass.** A real session may skip a step or be stopped earlier; that counts as inconclusive.
+
+| Suite | Command | Needs | When |
+|---|---|---|---|
+| Hook tests, in the simulated engine | `claude plugin test plugin` | Nothing | CI |
+| Python tools | `python3 -m unittest discover -s plugin/tests -p 'test_*.py'` | Nothing | CI |
+| Dev tools, including the suite's own judgement | `python3 -m unittest discover -s scripts -p 'test_*.py'` | Nothing | CI |
+| Real sessions: the guard attacks | `python3 scripts/throwaway_session.py --suite [CASE ...]` | Tokens | Each guard change, release |
+
+To add an attack: write its prompt in `dev/attacks/`, say what must hold in `cases.json`, and add a row to the hook tests where the simulated engine can show it. The verdict comes from the copy on disk, the log and the disclosure, never from what the model reports.
+
 ## Why unit tests are not enough
 
 The hook tests press buttons by key on a simulated interface, so they check logic. They do not see what is on screen, and they do not call a model. The problems found by hand in VS Code on 2026-11-04 were of that kind. A feature therefore does not count as `pass` just because its unit tests pass: it needs the test types listed for it in the tracker.

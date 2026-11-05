@@ -32,7 +32,7 @@ claude plugin test plugin
 python3 -m unittest discover -s plugin/tests -p 'test_*.py'
 ```
 
-The road to the next release is tracked in [docs/tracker.md](docs/tracker.md), generated from `dev/tracker.json` by `python3 scripts/tracker.py`; the [test plan](docs/test-plan.md) says how results are recorded. A new skill, agent or tool needs a place in the tracker's feature map, or CI fails.
+The road to the next release is tracked in [docs/tracker.md](docs/tracker.md), generated from `dev/tracker.json` by `python3 scripts/tracker.py`; the [test plan](docs/test-plan.md) says how results are recorded. A new skill, agent or tool needs a place in the tracker's feature map, or CI fails. A new test checks behaviour, not implementation: what a call does and what the files, the log and the disclosure then say.
 
 A change to the manuscript guard needs a case in the guard test, denied or allowed. A change to `ailog.py` needs its line in `test_tools.py`: the disclosure is what an author signs.
 

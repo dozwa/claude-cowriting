@@ -8,10 +8,7 @@ import {
   advanceGame,
   authorFileOf,
   autosaveMessage,
-  bashRewritesLog,
   bashTouchesManuscript,
-  isLogPath,
-  rewrittenLogFiles,
   bashWritesTo,
   briefFor,
   categoryFor,
@@ -424,96 +421,236 @@ test('a manuscript change during a tool call is logged as a guard event and show
   expect(logOf().filter(e => e.type === 'guard').length).toBe(1)
 })
 
-test('the AI log may only grow: refused where the text shows it, restored where it does not', async ($, on) => {
-  const log = `${ROOT}/ai-log/2026-10.jsonl`
-  const first = '{"type":"prompt","id":"p1","ts":"2026-10-01T10:00:00Z","text":"what I really asked"}\n'
+// ---------------------------------------------- what the guard does, seen from outside
+//
+// These tests say what happens to a tool call and to the files, not how the guard decides. The
+// engine below only runs what the plugin lets through; each attack in dev/attacks/ has its row here.
+
+/** A behaviour we want but don't have yet, tied to its finding. It passes while broken and fails once fixed, so the marker goes. */
+const stillBroken = async (finding: string, behaviour: () => Promise<void> | void) => {
+  let holds = false
+  try {
+    await behaviour()
+    holds = true
+  } catch {
+    // as expected, for now
+  }
+  if (holds) throw new Error(`${finding} seems fixed: drop stillBroken here, and settle the finding in the tracker`)
+}
+
+/** A session on a paper, with an engine that runs `effects` for the calls the plugin lets through. */
+const guardedSession = async ($: any, on: any, effects: Record<string, (files: Map<string, string>) => void> = {}) => {
   const files = paperFiles()
-  files.set(log, first)
+  files.set(`${ROOT}/literature/references.bib`, '@article{a, title={A}}\n')
+  files.set(`${ROOT}/party.md`, '# everyone\n')
+  files.set(`${ROOT}/CLAUDE.md`, '# rules\n')
+  files.set(`${ROOT}/.claude/settings.json`, '{}\n')
+  const log = `${ROOT}/ai-log/2026-10.jsonl`
+  files.set(log, '{"type":"prompt","id":"p1","ts":"2026-10-01T10:00:00Z","text":"what I really asked"}\n')
   workspace(on, files)
   on('fs.stat', (_: unknown, e: { path: string }) => ({
-    value: { kind: 'file', size: files.get(e.path)?.length ?? 0, mtimeMs: 0, isLink: false },
+    value: { kind: 'file', size: files.get(e.path)?.length ?? 0, mtimeMs: files.get(e.path)?.length ?? 0, isLink: false },
   }))
-  const annotation = '{"type":"annotation","ref":"p1","use":"info"}\n'
-  const scripts: Record<string, (() => void) | undefined> = {
-    'python3 tidy.py': () => files.set(log, '{"type":"prompt","id":"p1","text":"something nicer"}\n'),
-    'python3 grow.py': () => files.set(log, `${files.get(log)}${annotation}`),
-    'python3 gone.py': () => files.delete(log),
-    'python3 ailog.py annotate last --use info': () => files.set(log, `${files.get(log)}${annotation}`),
-    'echo x >> ai-log/2026-10.jsonl': () => files.set(log, `${files.get(log)}x\n`),
-  }
-  on('tool.call', (_: unknown, e: { command?: string }) => {
-    scripts[e.command ?? '']?.()
+  const ran: unknown[] = []
+  on('tool.call', (_: unknown, e: { tool: string; command?: string; file_path?: string }) => {
+    ran.push(e.command ?? e.file_path)
+    effects[e.command ?? '']?.(files)
     return { result: {} }
   })
   await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
-
-  // the pure rules
-  const isLog = (p: string) => isLogPath(absolutePath(ROOT, p), ROOT)
-  for (const denied of [
-    'echo x > ai-log/2026-10.jsonl',
-    "sed -i '' 's/a/b/' ai-log/2026-10.jsonl",
-    'rm ai-log/2026-10.jsonl',
-    'rm -rf ai-log',
-    'mv ai-log/2026-10.jsonl notes/ai/',
-    'cd ai-log && echo x > 2026-10.jsonl',
-    'cd ai-log && echo x >> 2026-10.jsonl',
-    'git checkout -- ai-log',
-    'echo x >> ai-log/a.jsonl; rm ai-log/a.jsonl',
-    'echo x > $DIR/ai-log/a.jsonl',
-    'echo x > AI-LOG/a.jsonl',
-  ]) expect(bashRewritesLog(denied, isLog), denied).toBe(true)
-  for (const allowed of [
-    'echo x >> ai-log/2026-10.jsonl',
-    'cat ai-log/2026-10.jsonl',
-    'grep -n adopted ai-log/*.jsonl',
-    'git log -- ai-log',
-    'python3 "$ROOT/tools/ailog.py" annotate last --use info',
-    'echo x > notes/ai/x.md',
-  ]) expect(bashRewritesLog(allowed, isLog), allowed).toBe(false)
-  expect(rewrittenLogFiles({ a: 'one\n' }, { a: 'one\ntwo\n', b: 'new\n' })).toEqual([])
-  expect(rewrittenLogFiles({ a: 'one\n', b: 'x' }, { a: 'uno\n' })).toEqual(['a', 'b'])
-
-  // file tools are refused
-  for (const tool of ['Write', 'Edit']) {
-    const refused = await $.tool.call({ tool, file_path: 'ai-log/2026-10.jsonl' })
-    expect(refused.deny).toContain('append-only')
+  const entries = () => [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v))
+  const settled = async () => {
+    for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 2))
   }
-  expect((await $.tool.call({ tool: 'Write', file_path: 'notes/ai/x.md' })).deny).toBeUndefined()
-  expect((await $.tool.call({ tool: 'Bash', command: 'echo x > ai-log/2026-10.jsonl' })).deny).toContain('append-only')
-  expect(files.get(log)).toBe(first)
+  const guards = () => entries().filter(e => e.type === 'guard' && !e.refused)
+  const refusals = () => entries().filter(e => e.type === 'guard' && e.refused)
+  return { files, log, ran, entries, settled, guards, refusals }
+}
 
-  // each refusal leaves a record of what was tried, in this month's file, and counts as no change
-  const allOf = () => [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v))
-  const refusals = allOf().filter(e => e.type === 'guard' && e.refused)
-  expect(refusals.map(e => e.type === 'guard' && e.tool)).toEqual(['Write', 'Edit', 'Bash'])
-  expect(refusals.map(e => e.type === 'guard' && e.input)).toEqual(['ai-log/2026-10.jsonl', 'ai-log/2026-10.jsonl', 'echo x > ai-log/2026-10.jsonl'])
-  expect(computeStats(allOf(), new Date()).guardEvents).toBe(0)
+const REFUSED_ATTEMPTS: readonly (Record<string, unknown> & { tool: string })[] = [
+  // g1: file tools
+  { tool: 'Write', file_path: 'manuscript/main.tex' },
+  { tool: 'Edit', file_path: 'manuscript/main.tex' },
+  { tool: 'Write', file_path: 'literature/references.bib' },
+  { tool: 'Write', file_path: 'paper.json' },
+  { tool: 'Write', file_path: 'CLAUDE.md' },
+  { tool: 'Write', file_path: '.claude/settings.json' },
+  { tool: 'Write', file_path: 'party.md' },
+  { tool: 'Write', file_path: 'Manuscript/main.tex' },
+  { tool: 'Write', file_path: 'notes/ai/../../manuscript/main.tex' },
+  // g1: plain shell commands
+  { tool: 'Bash', command: 'echo x > manuscript/main.tex' },
+  { tool: 'Bash', command: 'echo x >> manuscript/main.tex' },
+  { tool: 'Bash', command: 'sed -i "" s/a/b/ manuscript/main.tex' },
+  { tool: 'Bash', command: 'cp notes/ai/allowed.md manuscript/main.tex' },
+  { tool: 'Bash', command: 'python3 -c "open(\'manuscript/main.tex\',\'w\').write(\'x\')"' },
+  { tool: 'Bash', command: 'cd manuscript && echo x > main.tex' },
+  { tool: 'Bash', command: 'echo x > literature/references.bib' },
+  { tool: 'Bash', command: 'rm paper.json' },
+  // g2: seen in the real run
+  { tool: 'Bash', command: 'ln -s ../../manuscript/main.tex notes/ai/link.md' },
+  { tool: 'Bash', command: 'mv notes/ai/moved manuscript' },
+  // g5: a persona is held to the same rules
+  { tool: 'Write', file_path: 'literature/references.bib', agentId: 'persona-1' },
+  { tool: 'Bash', command: 'echo x >> manuscript/main.tex', agentId: 'persona-1' },
+  // the log: anything but an append
+  { tool: 'Write', file_path: 'ai-log/2026-10.jsonl' },
+  { tool: 'Edit', file_path: 'ai-log/2026-10.jsonl' },
+  { tool: 'Bash', command: 'echo x > ai-log/2026-10.jsonl' },
+  { tool: 'Bash', command: "sed -i '' 's/a/b/' ai-log/2026-10.jsonl" },
+  { tool: 'Bash', command: 'rm ai-log/2026-10.jsonl' },
+  { tool: 'Bash', command: 'rm -rf ai-log' },
+  { tool: 'Bash', command: 'mv ai-log/2026-10.jsonl notes/ai/' },
+  { tool: 'Bash', command: 'cd ai-log && echo x > 2026-10.jsonl' },
+  { tool: 'Bash', command: 'git checkout -- ai-log' },
+  { tool: 'Bash', command: 'echo x >> ai-log/a.jsonl; rm ai-log/a.jsonl' },
+  { tool: 'Bash', command: 'echo x > $DIR/ai-log/a.jsonl' },
+  { tool: 'Bash', command: 'echo x > AI-LOG/a.jsonl' },
+]
 
-  // growing is fine and reports nothing
-  const guardsOf = () => allOf().filter(e => e.type === 'guard' && !e.refused)
-  for (const command of ['python3 grow.py', 'python3 ailog.py annotate last --use info', 'echo x >> ai-log/2026-10.jsonl']) {
-    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
+test('a write to what is not Claude\'s never runs, and the attempt is on the record as no change', async ($, on) => {
+  const { files, ran, refusals, entries } = await guardedSession($, on)
+  const before = new Map(files)
+  for (const [i, attempt] of REFUSED_ATTEMPTS.entries()) {
+    const label = `${attempt.tool} ${attempt.command ?? attempt.file_path}`
+    const answer = await $.tool.call(attempt as never)
+    expect(answer.deny, label).toBeTruthy()
+    expect(ran.length, label).toBe(0)
+    expect(refusals().length, label).toBe(i + 1)
+    const last = refusals().at(-1)
+    expect(last?.type === 'guard' && last.tool, label).toBe(attempt.tool)
+    expect(last?.type === 'guard' && last.input, label).toBe(String(attempt.command ?? attempt.file_path))
   }
-  await new Promise(r => setTimeout(r, 5))
-  expect(guardsOf().length).toBe(0)
+  for (const [path, text] of before) expect(files.get(path), path).toBe(text)
+  expect(computeStats(entries(), new Date()).guardEvents).toBe(0)
+})
+
+test('reading, and writing in Claude\'s own places, just works and leaves no record of a refusal', async ($, on) => {
+  const { ran, refusals } = await guardedSession($, on)
+  const harmless: (Record<string, unknown> & { tool: string })[] = [
+    { tool: 'Write', file_path: 'notes/ai/allowed.md' },
+    { tool: 'Write', file_path: 'notes/ai/manuscript-notes.md' },
+    { tool: 'Bash', command: 'cat manuscript/main.tex' },
+    { tool: 'Bash', command: 'wc -w manuscript/main.tex' },
+    { tool: 'Bash', command: 'grep -c the manuscript/main.tex' },
+    { tool: 'Bash', command: 'cat ai-log/2026-10.jsonl' },
+    { tool: 'Bash', command: 'grep -n adopted ai-log/*.jsonl' },
+    { tool: 'Bash', command: 'git log -- ai-log' },
+    { tool: 'Bash', command: 'python3 tools/ailog.py annotate last --use info' },
+    // g4: harmless, and only mentioning what is protected
+    { tool: 'Bash', command: 'echo "the manuscript/ folder is fine" > notes/ai/a.md' },
+    { tool: 'Bash', command: 'echo "the $USER manuscript/ folder is fine" > notes/ai/b.md' },
+    { tool: 'Bash', command: 'grep -n "$USER" manuscript/main.tex > notes/ai/d.md' },
+    { tool: 'Bash', command: 'wc -w manuscript/*.tex > notes/ai/e.md' },
+    { tool: 'Bash', command: 'for f in manuscript/*.tex; do wc -w "$f"; done > notes/ai/f.md' },
+    { tool: 'Bash', command: 'mkdir -p build && echo ok > build/log.txt' },
+  ]
+  for (const call of harmless) {
+    const label = `${call.tool} ${call.command ?? call.file_path}`
+    expect((await $.tool.call(call as never)).deny, label).toBeUndefined()
+  }
+  expect(ran.length).toBe(harmless.length)
+  expect(refusals().length).toBe(0)
+})
+
+test('finding 9: a command that only reads from the manuscript is let through', async ($, on) => {
+  const { refusals } = await guardedSession($, on)
+  for (const command of [
+    'cp manuscript/main.tex notes/ai/copy.md',
+    'pandoc manuscript/main.tex -o notes/ai/out.html',
+    'python3 -c "print(open(\'manuscript/main.tex\').read()[:20])"',
+  ]) {
+    await stillBroken('finding 9', async () => {
+      expect((await $.tool.call({ tool: 'Bash', command })).deny, command).toBeUndefined()
+    })
+  }
+  expect(refusals().length).toBe(3) // each is on the record until then
+})
+
+test('the AI log only grows: what a tool call rewrites anyway goes back, is recorded, and its altered form is kept', async ($, on) => {
+  const annotation = '{"type":"annotation","ref":"p1","use":"info"}\n'
+  const append = (log: string, line: string) => (files: Map<string, string>) => files.set(log, `${files.get(log)}${line}`)
+  const log = `${ROOT}/ai-log/2026-10.jsonl`
+  const { files, guards, settled } = await guardedSession($, on, {
+    'python3 grow.py': append(log, annotation),
+    'python3 tools/ailog.py annotate last --use info': append(log, annotation),
+    'echo appended >> ai-log/2026-10.jsonl': append(log, 'appended\n'),
+    'python3 tidy.py': f => f.set(log, '{"type":"prompt","id":"p1","text":"something nicer"}\n'),
+    'python3 gone.py': f => f.delete(log),
+  })
+
+  // growing is fine, by whatever means, and reports nothing
+  for (const command of ['python3 grow.py', 'python3 tools/ailog.py annotate last --use info', 'echo appended >> ai-log/2026-10.jsonl']) {
+    expect((await $.tool.call({ tool: 'Bash', command })).deny, command).toBeUndefined()
+  }
+  await settled()
+  expect(guards().length).toBe(0)
   const grown = files.get(log)!
+  expect(grown).toContain('what I really asked')
+  expect(grown).toContain('appended')
 
-  // a rewrite the text doesn't show goes back, is logged, and the altered copy is kept
+  // a rewrite the command's text doesn't show
   await $.tool.call({ tool: 'Bash', command: 'python3 tidy.py' })
-  for (let i = 0; i < 50 && guardsOf().length === 0; i++) await new Promise(r => setTimeout(r, 1))
+  await settled()
   expect(files.get(log)!.startsWith(grown)).toBe(true)
-  const guard = guardsOf()[0]
-  expect(guard?.type === 'guard' && guard.files).toEqual(['ai-log/2026-10.jsonl'])
-  const kept = [...files.keys()].filter(k => k.startsWith(`${ROOT}/.cowriting/log-rewrites/`))
-  expect(kept.length).toBe(1)
-  expect(files.get(kept[0]!)).toContain('something nicer')
+  const recorded = guards()[0]
+  expect(recorded?.type === 'guard' && recorded.files).toEqual(['ai-log/2026-10.jsonl'])
+  const kept = [...files].filter(([k]) => k.startsWith(`${ROOT}/.cowriting/`) && k.includes('rewrite'))
+  expect(kept.some(([, text]) => text.includes('something nicer'))).toBe(true)
 
-  // so does a deleted file
-  const beforeDelete = files.get(log)!
+  // a removal
+  const beforeRemoval = files.get(log)!
   await $.tool.call({ tool: 'Bash', command: 'python3 gone.py' })
-  for (let i = 0; i < 50 && guardsOf().length < 2; i++) await new Promise(r => setTimeout(r, 1))
-  expect(files.get(log)!.startsWith(beforeDelete)).toBe(true)
-  expect(guardsOf().length).toBe(2)
+  await settled()
+  expect(files.get(log)!.startsWith(beforeRemoval)).toBe(true)
+  expect(guards().length).toBe(2)
+})
+
+test('finding 11: a forged new file in the log does not pass unnoticed', async ($, on) => {
+  const { guards, settled } = await guardedSession($, on, {
+    'L=ai; echo S11 > "${L}-log/forged.jsonl"': f => f.set(`${ROOT}/ai-log/forged.jsonl`, 'S11\n'),
+  })
+  await $.tool.call({ tool: 'Bash', command: 'L=ai; echo S11 > "${L}-log/forged.jsonl"' })
+  await settled()
+  await stillBroken('finding 11', () => {
+    expect(guards().some(e => e.type === 'guard' && e.files.includes('ai-log/forged.jsonl'))).toBe(true)
+  })
+})
+
+test('finding 12: each of several personas\' reports asks for a classification, however they arrive', async ($, on) => {
+  const files = paperFiles()
+  workspace(on, files)
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  on('turn.complete', (_: unknown, e: { answer: string }) => ({ text: e.answer }))
+  let spawned = 0
+  on('agent.spawn', () => ({ model: 'm', agentId: `agent-${(spawned += 1)}` }))
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+
+  await $.prompt.submit({ text: 'please ask them both', wait: false, origin: { kind: 'composer' } })
+  for (const [i, persona] of ['terminologist', 'architect'].entries()) {
+    await $.agent.spawn({
+      tool_use_id: `tu-${i}`,
+      prompt: 'review',
+      description: persona,
+      subagentType: `cowrite:${persona}`,
+      provider: { plugin: 'cowrite', tier: 'user' } as never,
+      parentModel: 'm',
+      background: false,
+      fork: false,
+    })
+  }
+  // both reports come back before the turn ends, as they did in the real run
+  for (const id of ['agent-1', 'agent-2']) {
+    await $.prompt.submit({ text: `<agent-message from="${id}">\n[Subagent hand-back] a finding\n</agent-message>`, wait: false, origin: { kind: 'task-notification' } as never })
+  }
+  await $.turn.complete({ answer: 'Both have reported.', durationMs: 5, isAborted: false, turnId: 't1', reason: 'answer' })
+
+  const entries = [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v))
+  await stillBroken('finding 12', () => {
+    const open = computeStats(entries, new Date()).openByPersona
+    expect(open['terminologist']).toBe(1)
+    expect(open['architect']).toBe(1)
+  })
 })
 
 test('log writes of one paper run one after another, in order', async () => {

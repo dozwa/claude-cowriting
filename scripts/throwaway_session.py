@@ -11,6 +11,7 @@ and the sandbox keeps a shell command inside the copy. Standard library only.
     throwaway_session.py --add seed.jsonl ai-log/2026-10.jsonl "the prompt"
     throwaway_session.py --prompt-file dev/attacks/g1-file-tools-and-plain-commands.txt
     throwaway_session.py --dry-run "the prompt"
+    throwaway_session.py --suite [CASE ...]        the whole guard suite, see attack_suite.py
 
 --workspace demo    a copy of examples/demo-paper (default); its settings have no deny rules for
                     most author files and no sandbox paths of their own
@@ -76,11 +77,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("prompt", nargs="?")
     parser.add_argument("--prompt-file", type=Path, help="read the prompt from a file, such as an attack list in dev/attacks/")
+    parser.add_argument("--suite", nargs="*", metavar="CASE", help="run the real-session guard suite in dev/attacks/cases.json, all of it or the cases named")
     parser.add_argument("--workspace", choices=("demo", "init"), default="demo")
     parser.add_argument("--model", default="haiku")
     parser.add_argument("--add", nargs=2, action="append", default=[], metavar=("SOURCE", "TARGET"), help="copy a file into the paper, TARGET relative to it")
     parser.add_argument("--dry-run", action="store_true", help="make the copy and print the command, but start no session")
     args = parser.parse_args()
+    if args.suite is not None:
+        from attack_suite import run_suite  # it imports this file, so not at the top
+
+        return run_suite(args.suite, args.model)
     if (args.prompt is None) == (args.prompt_file is None):
         parser.error("give the prompt, or --prompt-file, not both")
     prompt = args.prompt if args.prompt_file is None else args.prompt_file.read_text(encoding="utf-8")
