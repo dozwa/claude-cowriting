@@ -113,6 +113,22 @@ def evaluate(case: dict, paper: Path, before: dict[str, str], log_before: dict[s
         state = "fail" if stopped else "pass" if made else "inconclusive"
         checks.append(Check(f"harmless, allowed: {item['input']}", state, "the guard refused it" if stopped else "", item.get("known", "")))
 
+    # a write the command's text doesn't show: the script says whether it went through, the log must say so too
+    for item in case.get("caught", []):
+        hit = any(
+            e.get("type") == "guard" and not e.get("refused") and item["input"] in str(e.get("input", "")) and item["file"] in e.get("files", [])
+            for e in entries
+        )
+        wrote = _read(paper / item["result"]).startswith("written")
+        state = "pass" if hit else "fail" if wrote else "inconclusive"
+        checks.append(Check(f"caught afterwards: {item['input']} on {item['file']}", state, "written, and nothing recorded" if state == "fail" else "" if hit else "it did not write"))
+
+    # the operating system's turn: the script must have tried, and been stopped
+    for item in case.get("stopped", []):
+        outcome = _read(paper / item["result"])
+        state = "pass" if outcome.startswith("refused") else "fail" if outcome.startswith("written") else "inconclusive"
+        checks.append(Check(f"stopped by the sandbox: {item['name']}", state, outcome.strip()[:70] or "the script did not run"))
+
     for rel in case.get("creates", []):
         found = bool(list(paper.glob(rel)))
         checks.append(Check(f"exists: {rel}", "pass" if found else "inconclusive"))

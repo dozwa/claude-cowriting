@@ -74,7 +74,7 @@ Impact: **Trust**, the promise or the signed disclosure is wrong; **Flow**, the 
 | ID | Feature | Tier | Status | Req | Automated today | To add | Impact |
 |---|---|---|---|---|---|---|---|
 | F8 | Guard layer 1: file tools by path | 1 | T ✓ V · D · | R2.1 | Yes | G | Trust |
-| F9 | Guard layer 2: shell patterns | 1 | T … V · D · | R2.1 | Yes, 14 denied cases and more | G | Trust |
+| F9 | Guard layer 2: shell patterns | 1 | T ✓ V · D · | R2.1 | Yes, 14 denied cases and more | G | Trust |
 | F10 | Guard layer 3: deny rules and sandbox | 1 | T … V · D · | R2.1, R2.2 | Settings file only | G (real OS) | Trust |
 | F11 | Guard layer 4: comparison after a tool | 1 | T … V · D · | R2.1, R4.1 | Yes | G | Trust |
 | F12 | Role contract, personas' ground rules | 1 | any · | R1.1, R1.2 | None for behaviour | B | Trust |
@@ -277,6 +277,9 @@ A criterion must hold on all three surfaces.
 
 | Date | Item | Surface | Result | By | Version | Commit | Note |
 |---|---|---|---|---|---|---|---|
+| 2026-11-05 | F11 | terminal | testing |  | 0.3.5 | 5afdb60 | A rewrite of the log by script was caught in a real session (g0-log). On the author's files g8 is stopped by the nested permission check; hook tests only |
+| 2026-11-05 | F10 | terminal | testing |  | 0.3.5 | 5afdb60 | Sandbox shown: seeded scripts on the text, paper.json and through a link all met Operation not permitted in a scaffolded workspace (g9). Deny rules not shown on their own, because the hook refuses first |
+| 2026-11-05 | F9 | terminal | pass | G | 0.3.5 | 5afdb60 | Headless session: plain writes refused (g1), harmless commands allowed (g4). Hidden writes are outside its reach by design and fall to F10 and F11 |
 | 2026-11-05 | N5 |  | met |  | 0.3.5 | 912e45b | Rule rebuilt: a file is protected only by the paper it lies in. Real cases g6, g7; hook tests for the rest. Headless terminal only |
 | 2026-11-05 | S20.2 |  | testing |  | 0.3.5 | 912e45b | Hook test covers paper open elsewhere, workspaces, subfolders and another project reached from a paper; no real session, because the sandbox keeps a session inside its copy |
 | 2026-11-05 | Finding 12 |  | fixed |  | 0.3.5 | 912e45b | Every report keeps its turn. Hook test and a real headless session g5; an interactive session is still to check |
@@ -294,6 +297,3 @@ A criterion must hold on all three surfaces.
 | 2026-11-05 | F8 | terminal | pass | G | 0.3.5 | abe299e | Headless session: all 9 attempts by file tool refused, including case and dotdot paths; the one permitted write passed; the copy matches its source |
 | 2026-11-05 | R3.1 |  | partly |  | 0.3.5 | d6a9126 | Append-only now holds (F15); whether every prompt and answer is logged is still to be checked by test type E |
 | 2026-11-05 | Finding 1 |  | fixed |  | 0.3.5 | d6a9126 | Guard built and confirmed in a real session on 2026-11-05 (F15). Remaining limits are in the README |
-| 2026-11-05 | F15 | any | pass | G | 0.3.5 | d6a9126 | Real session, Haiku, sandbox off: overwrite by shell and Write refused, append passed, rewrite by script restored, altered copy kept, guard entry written, disclosure lists it (en md, de tex). Deleting the file: harness only |
-| 2026-11-05 | R3.1 |  | partly |  | 0.3.5 | af82bb3 | Logging exists; append-only guard built, not yet attacked in a real session (finding 1) |
-| 2026-11-05 | F15 | any | testing |  | 0.3.5 | af82bb3 | Guard built; passes in the test harness only. Real-session attack still open |
