@@ -58,6 +58,13 @@ class Pane:
         tmux("send-keys", "-t", SESSION, "Enter")
         time.sleep(wait)
 
+    def write(self, text: str, wait: float = 2) -> None:
+        """Type into the pane's field that holds the keyboard, and send with Enter."""
+        tmux("send-keys", "-t", SESSION, "-l", text)
+        time.sleep(0.5)
+        tmux("send-keys", "-t", SESSION, "Enter")
+        time.sleep(wait)
+
     def press(self, key: str, wait: float = 1.5) -> None:
         tmux("send-keys", "-t", SESSION, key)
         time.sleep(wait)
@@ -106,13 +113,19 @@ def feedback_loop(width: int, height: int, too_small: str = "") -> None:
         for label in ("✓ used", "✎ changed", "✗ not used", "ℹ info"):
             pane.check(f"opened, the choice is on screen without scrolling: {label}", pane.sees(label), too_small)
         presses = 0
-        seen_reply, seen_report = pane.sees("Reply"), pane.sees("participants")
-        while presses < 4 and not (seen_reply and seen_report):
+        seen: set[str] = set()
+        # the comment's cue may wrap, so its first words are what is looked for
+        wanted = {"Reply": "Reply", "report": "participants", "cue": "saved with"}
+        while True:
+            seen |= {name for name, text in wanted.items() if pane.sees(text)}
+            if presses >= 4 or len(seen) == len(wanted):
+                break
             pane.press("PageDown")
             presses += 1
-            seen_reply, seen_report = seen_reply or pane.sees("Reply"), seen_report or pane.sees("participants")
-        pane.check("Reply can be reached", seen_reply, too_small)
-        pane.check("the report itself can be reached", seen_report, too_small)
+        pane.check("Reply can be reached", "Reply" in seen, too_small)
+        pane.check("the report itself can be reached", "report" in seen, too_small)
+        pane.check("the comment says when it is saved", "cue" in seen, too_small)
+        pane.check("Claude's note that the report came back isn't there to read twice", not pane.sees("Claude added") and not pane.sees("found one unusual term"), too_small)
         for _ in range(presses):
             pane.press("PageUp")
         pane.press("a")

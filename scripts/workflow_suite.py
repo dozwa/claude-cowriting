@@ -180,6 +180,11 @@ def an_expert_of_ones_own() -> None:
         pane.close()
 
 
+def attack_suite_text(entry: dict) -> str:
+    """A logged report's words, without the frame the engine puts around it."""
+    return str(entry.get("text", "")).split("The report follows:")[-1]
+
+
 def wait_for(test, seconds: int = 150) -> bool:
     for _ in range(seconds // 5):
         if test():
@@ -198,11 +203,25 @@ def reply_in_a_thread() -> None:
     try:
         for key in ("2", "o", "y"):
             pane.press(key)
-        pane.type("Why is participants better than subjects in my field? Please argue your position.", wait=2)
+        pane.write("Why is participants better than subjects in my field? Please argue your position.")
+        prompt_box = pane.screen().split("❯")[-1]
+        check("the reply is typed in the pane, not the prompt box", "Why is participants" not in prompt_box, prompt_box[:200])
         check("the reply is logged and names the feedback", wait_for(lambda: any(e.get("replyTo") == "report1" for e in log_of(pane.paper))))
         replies = [e["id"] for e in log_of(pane.paper) if e.get("replyTo") == "report1"]
         answered = wait_for(lambda: any(e.get("origin") == "agent" and e.get("replyTo") in replies for e in log_of(pane.paper)), 200)
         check("the persona's answer names the reply", answered, str([(e.get("origin"), e.get("replyTo")) for e in log_of(pane.paper) if e.get("type") == "prompt"]))
+        # the answer shows in the open thread, once scrolled to, and the author's words above it
+        answers = [e for e in log_of(pane.paper) if e.get("origin") == "agent" and e.get("replyTo") in replies]
+        if answers:
+            # a word of the answer that the seeded report doesn't have, so it can only come from the answer
+            seeded = (runner.ROOT / "dev/attacks/fixtures/seed-feedback.jsonl").read_text(encoding="utf-8").lower()
+            words = next((w for w in re.findall(r"[A-Za-zÄÖÜäöüß]{6,}", attack_suite_text(answers[-1])) if w.lower() not in seeded and w.lower() != "subagent"), "")
+            time.sleep(4)
+            seen = False
+            for _ in range(10):
+                seen = seen or words in pane.screen()
+                pane.press("PageDown", wait=0.7)
+            check(f"the answer shows in the thread in the pane ({words})", seen, pane.screen()[-500:])
     finally:
         pane.close()
 

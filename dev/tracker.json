@@ -134,7 +134,8 @@
       "title": "In the opened view the report is below the fold at 100x40 with no hint that it is there, and scrolling to it takes the choices off screen. The pane uses about a third of the free height. Keys it doesn't handle go to the prompt box",
       "evidence": "Real terminal, 2026-11-05: PageDown reaches the report; `j` landed in the prompt box",
       "why": "An author can decide without having read, which is S7. To solve with N1 to N4 in the UI consolidation",
-      "status": "open"
+      "status": "accepted",
+      "note": "The hint, the order and results above the text are built. The pane's height and keys it doesn't handle reaching the prompt box belong to Claude Code, so they stay; both are harmless"
     },
     {
       "id": 17,
@@ -1125,26 +1126,26 @@
     {
       "id": "N1",
       "text": "It is clear when a comment is saved",
-      "status": "open",
-      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+      "status": "met",
+      "note": "The field says it is saved with your choice. Real terminal with a real model; other surfaces in the manual run"
     },
     {
       "id": "N2",
       "text": "Feedback text appears once",
-      "status": "open",
-      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+      "status": "met",
+      "note": "One text; Claude's relay only if it adds something. Real terminal with a real model; other surfaces in the manual run"
     },
     {
       "id": "N3",
       "text": "A reply happens inside the thread in the pane",
-      "status": "open",
-      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+      "status": "met",
+      "note": "Typed in the pane, answered in the thread. It also runs in the transcript. Real terminal with a real model; other surfaces in the manual run"
     },
     {
       "id": "N4",
       "text": "The reading view has a clear hierarchy",
-      "status": "open",
-      "note": "From the VS Code test of 0.3.5, 2026-11-04"
+      "status": "met",
+      "note": "Choices, comment, text, reply, then the rest. Whether it reads clearly is for people to say. Real terminal with a real model; other surfaces in the manual run"
     },
     {
       "id": "N5",
@@ -1332,19 +1333,20 @@
         {
           "id": "S7.1",
           "text": "The text appears once, as rendered Markdown.",
-          "status": "fail",
-          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         },
         {
           "id": "S7.2",
           "text": "The main action is visible without scrolling at the smallest supported pane.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         },
         {
           "id": "S7.3",
           "text": "Choices, reply, comment, links and text have a clear order of importance.",
-          "status": "fail",
-          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         }
       ]
     },
@@ -1365,13 +1367,14 @@
         {
           "id": "S8.1",
           "text": "One key or click records it; it leaves the open list and the counts drop.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         },
         {
           "id": "S8.2",
           "text": "It is clear when a comment is kept.",
-          "status": "fail",
-          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         }
       ]
     },
@@ -1390,13 +1393,14 @@
         {
           "id": "S9.1",
           "text": "I type and read the exchange in the thread.",
-          "status": "fail",
-          "note": "Seen failing in the VS Code test of 0.3.5, 2026-11-04"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         },
         {
           "id": "S9.2",
           "text": "The persona answers as a colleague; the log keeps the links; the appendix says \"in reply to\".",
-          "status": "untested"
+          "status": "testing",
+          "note": "Real terminal with a real model; other surfaces in the manual run"
         }
       ]
     },
@@ -2398,6 +2402,112 @@
       "by": "B",
       "commit": "caf891a",
       "note": "Real headless sessions: /cowrite:summon for all ten personas, /cowrite:ask once"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "N1",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "The field says it is saved with your choice. Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "N2",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "One text; Claude's relay only if it adds something. Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "N3",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Typed in the pane, answered in the thread. It also runs in the transcript. Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "N4",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Choices, comment, text, reply, then the rest. Whether it reads clearly is for people to say. Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S7.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S7.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S7.3",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S8.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S8.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S9.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S9.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F25",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "391efc0",
+      "note": "Real terminal with a real model; other surfaces in the manual run: reply in the pane, answer in the thread, thread in the log"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 16",
+      "status": "accepted",
+      "version": "0.3.5",
+      "commit": "391efc0",
+      "note": "The hint, the order and results above the text are built. The pane's height and keys it doesn't handle reaching the prompt box belong to Claude Code, so they stay; both are harmless"
     }
   ]
 }

@@ -125,6 +125,18 @@ export const readable = (s: string) =>
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
+/**
+ * Does what Claude said after a persona's report add anything? A short note that it came back, or
+ * words that mostly repeat the report, don't: the author reads one text.
+ */
+export const addsToReport = (report: string, relay: string): boolean => {
+  const words = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? []
+  const own = words(relay)
+  if (own.length < 25) return false
+  const inReport = new Set(words(report))
+  return own.filter(w => inReport.has(w)).length / own.length < 0.6
+}
+
 // ---------------------------------------------- what changed since a hint
 /** Longer diffs are cut: the summary describes the gist, not every line. */
 export const SUMMARY_DIFF_MAX = 12_000

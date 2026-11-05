@@ -1101,7 +1101,11 @@ test('the Feedback tab and the persona badge lead to the whole input, a comment,
     fills.push(e.text)
     return { isFilled: true }
   })
-  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  const submitted: string[] = []
+  on('prompt.submit', (_: unknown, e: { text: string }) => {
+    submitted.push(e.text)
+    return { text: e.text }
+  })
   on('turn.complete', (_: unknown, e: { answer: string }) => ({ text: e.answer }))
   on('agent.spawn', () => ({ model: 'm', agentId: 'agent-9' }))
   mock.clock(on, { now: 1_000_000 })
@@ -1130,17 +1134,25 @@ test('the Feedback tab and the persona badge lead to the whole input, a comment,
   expect(await ui.find({ type: 'Text', text: /Top issue: the red thread breaks/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /✓ used = as suggested/ })).toBeUndefined()
   await ui.press({ key: 'open-p2' })
-  // the report and Claude's words are drawn as Markdown (a persona's tables and headings render), the choices above them
+  // the report is drawn as Markdown (a persona's tables and headings render), once, the choices above it
   expect(await ui.find({ type: 'Markdown', text: /The red thread breaks after the gap/ })).toBeDefined()
-  expect(await ui.find({ type: 'Markdown', text: /Top issue/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /✓ used = as suggested/ })).toBeDefined()
+  // Claude's note that the report is back adds nothing, so it isn't there to read twice
+  expect(await ui.find({ type: 'Text', text: /Claude added/ })).toBeUndefined()
+  // it says when a comment is kept
+  expect((await ui.find({ key: 'note-p2' }))?.props.placeholder).toMatch(/saved with your choice/)
 
-  // a reply starts in the prompt box, addressed to the persona's agent; the author types and sends it
-  await ui.press({ key: 'reading-reply' })
-  expect(fills[0]).toMatch(/^Reply to The Architect \(the cowrite:architect agent\) on its structure feedback from .*log entry p2\./)
+  // the reply is typed in the pane and goes to the persona's agent from there; nothing goes through the prompt box
+  await ui.input({ key: 'reply-p2-0', text: "Isn't the gap the method's motivation?", kind: 'submit' })
+  expect(fills.length).toBe(0)
+  expect(submitted[0]).toMatch(/^Reply to The Architect \(the cowrite:architect agent\) on its structure feedback from .*log entry p2\./)
+  expect(submitted[0]).toMatch(/My reply: Isn't the gap the method's motivation\?$/)
+  // the view shows it at once, says who it is waiting for, and the field is empty for the next reply
+  expect(await ui.find({ type: 'Markdown', text: /^Isn't the gap the method's motivation\?$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Waiting for The Architect/ })).toBeDefined()
+  expect(await ui.find({ key: 'reply-p2-1' })).toBeDefined()
 
-  // the author sends it; Claude launches the Architect again; its answer comes back: a thread in the log
-  await $.prompt.submit({ text: `${fills[0]}Isn't the gap the method's motivation?`, wait: false, origin: { kind: 'composer' } })
+  // Claude launches the Architect again; its answer comes back: a thread in the log, and in the open view
   await $.agent.spawn({
     tool_use_id: 'tu-9',
     prompt: 'answer the reply',
@@ -1152,7 +1164,7 @@ test('the Feedback tab and the persona badge lead to the whole input, a comment,
     fork: false,
   })
   await $.turn.complete({ answer: 'The Architect is thinking it over.', durationMs: 5, isAborted: false, turnId: 't1', reason: 'answer' })
-  const answer = '<agent-message from="agent-9">\n[Subagent hand-back] Fair point: then say so in one sentence before the method.\n</agent-message>'
+  const answer = '<agent-message from="agent-9">\n[Subagent hand-back] The report follows:\n  Fair point: then say so in one sentence before the method.\n</agent-message>'
   await $.prompt.submit({ text: answer, wait: false, origin: { kind: 'task-notification' } as never })
   await $.turn.complete({ answer: 'The Architect agrees, with one condition.', durationMs: 5, isAborted: false, turnId: 't2', reason: 'answer' })
   const authorReply = logOf().find(e => e.type === 'prompt' && e.origin === undefined && e.replyTo !== undefined)
@@ -1162,15 +1174,17 @@ test('the Feedback tab and the persona badge lead to the whole input, a comment,
   expect(authorReply?.type === 'prompt' && authorReply.replyTo).toBe('p2')
   expect(authorReply?.type === 'prompt' && authorReply.category).toBe('structure')
   expect(answered?.type === 'prompt' && answered.replyTo).toBe(replyId)
-  // the Feedback tab lists the answer as part of the thread; opened, it links back and shows the author's words
+  expect(await ui.find({ type: 'Markdown', text: /Fair point: then say so/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Waiting for/ })).toBeUndefined()
+  // the Feedback tab lists the answer as part of the thread; opened, it shows the whole thread again
   await ui.press({ key: 'reading-back' })
   expect(await ui.find({ type: 'Text', text: /answers your reply/ })).toBeDefined()
   await ui.press({ key: `open-${answerId}` })
-  expect(await ui.find({ type: 'Text', text: /your reply: Isn't the gap the method's motivation\?/ })).toBeDefined()
+  expect(await ui.find({ type: 'Markdown', text: /The red thread breaks after the gap/ })).toBeDefined()
+  expect(await ui.find({ type: 'Markdown', text: /^Isn't the gap the method's motivation\?$/ })).toBeDefined()
   expect(await ui.find({ key: 'thread-p2' })).toBeDefined()
   await ui.press({ key: 'thread-p2' })
   expect(await ui.find({ key: `thread-${answerId}` })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /one answer to your reply/ })).toBeDefined()
 
   // Remember: the model proposes briefing lines, the author edits and saves them, party.md gets them under the persona
   await ui.press({ key: 'reading-remember' })

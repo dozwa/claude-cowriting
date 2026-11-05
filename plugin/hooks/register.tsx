@@ -4,8 +4,8 @@
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
-import type { Count, FocusMode, GameFile, LiveHint, LogEntry, Paper, PointStatus, PromptEntry, Reading, ReadingState, RecentTurn, Review, ScopePoint, ScopeProgress, ScopeSection, Snapshot, Stage, Tab, ThreadLink, Usage, WatchState } from '../types'
-import { LOG_GUARD_MESSAGE, foldersUp, isLogPath, mentionsPath, relativeTo, rewrittenLogFiles, shellWrites, strayLogFiles, absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
+import type { ResponseEntry, ThreadMessage, Count, FocusMode, GameFile, LiveHint, LogEntry, Paper, PointStatus, PromptEntry, Reading, ReadingState, RecentTurn, Review, ScopePoint, ScopeProgress, ScopeSection, Snapshot, Stage, Tab, ThreadLink, Usage, WatchState } from '../types'
+import { LOG_GUARD_MESSAGE, addsToReport, foldersUp, isLogPath, mentionsPath, relativeTo, rewrittenLogFiles, shellWrites, strayLogFiles, absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
 import type { FileChange, Fingerprint, Paragraph } from './core'
 import { CUSTOM_TOOLS, customDescription, customPersonas, DEFAULT_PARTY, isCustomId, parsePersonaFile, partyPersonas, personaById, personaFileSkeleton, PERSONAS, setCustomPersonas } from './personas'
 import type { CustomPersona, Persona } from './personas'
@@ -1221,8 +1221,9 @@ type PaneProps = {
   onSummarize: () => void
   /** the comment typed, or taken from the summary */
   onNote: (text: string, isTyped: boolean) => void
-  /** starts a reply to the opened input in the prompt box */
-  onReply: () => void
+  /** the keyboard goes to the reply field; without a field on this surface, the prompt box takes the reply */
+  onReply: (hasField: boolean) => void
+  onSendReply: (text: string) => void
   /** asks the model what the persona should remember from this input and its discussion */
   onRemember: () => void
   /** the proposal as the author edits it in the field */
@@ -1708,6 +1709,9 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
   const { Box, Text, Button, Markdown } = elements
   // a surface without a text field (none of the three here, but the table allows it) gets no comment
   const Input = 'Input' in elements ? elements.Input : null
+  const last = reading.messages[reading.messages.length - 1]
+  const answering = [...reading.messages].reverse().find(m => m.role === 'ai')?.who ?? reading.who
+  const isShort = isSmall || (props.placement === 'inline' && e.surface === 'terminal')
   return (
     <Box flexDirection="column">
       <Box flexDirection="row">
@@ -1720,6 +1724,7 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
           </Text>
         </Text>
       </Box>
+
       <Box flexDirection="row" flexWrap="wrap">
         {USES.map(use => (
           <Button
@@ -1731,18 +1736,16 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
         ))}
       </Box>
       {!isSmall && <Text dimColor>{USES.map(use => `${USE_LABELS[use].button} = ${USE_LABELS[use].meaning}`).join(' · ')}</Text>}
-      <Box flexDirection="row">
-        <Button key="reading-reply" label="Reply" hotkey="y" onPress={props.onReply} />
-        <Button
-          key="reading-summarize"
-          label={reading.isSummarizing ? 'Reading your diff…' : 'What did I change since?'}
-          hotkey="c"
-          onPress={props.onSummarize}
+      {Input !== null && (
+        <Input
+          key={`note-${reading.id}`}
+          label="Comment"
+          placeholder="optional, saved with your choice above"
+          value={reading.note}
+          onInput={(text: string) => props.onNote(text, true)}
+          onSubmit={(text: string) => props.onNote(text, true)}
         />
-        {reading.persona !== '' && (
-          <Button key="reading-remember" label={reading.isProposing ? 'Thinking…' : 'Remember'} hotkey="m" onPress={props.onRemember} />
-        )}
-      </Box>
+      )}
       {reading.proposal !== '' && (
         <Box flexDirection="column">
           <Text weight="bold">What {reading.who} would keep in mind for this paper, in party.md once you save it:</Text>
@@ -1771,51 +1774,61 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
           <Button key="reading-use-summary" label="Use as comment" hotkey="u" onPress={() => props.onNote(reading.summary, false)} />
         </Box>
       )}
-      {Input !== null && (
-        <Input
-          key={`note-${reading.id}`}
-          label="Comment"
-          placeholder="optional: what you did with it, for the prompts appendix"
-          value={reading.note}
-          rows={2}
-          onInput={(text: string) => props.onNote(text, true)}
-          onSubmit={(text: string) => props.onNote(text, true)}
-        />
-      )}
-      {reading.parent !== null && (
-        <Box flexDirection="row">
-          <Text dimColor>↳ in the thread on </Text>
-          <Button key={`thread-${reading.parent.id}`} plain onPress={() => props.onOpen(reading.parent!.id)}>
-            <Text color="info">
-              {reading.parent.who}'s feedback from {localTime(reading.parent.ts)}
-            </Text>
-          </Button>
-        </Box>
-      )}
-      {reading.replies.length > 0 && (
-        <Box flexDirection="row">
-          <Text dimColor>↳ {reading.replies.length === 1 ? 'one answer to your reply: ' : `${reading.replies.length} answers to your replies: `}</Text>
-          {reading.replies.map(r => (
-            <Button key={`thread-${r.id}`} plain onPress={() => props.onOpen(r.id)}>
-              <Text color="info">
-                {r.who} at {localTime(r.ts)}{' '}
-              </Text>
+      {isShort && <Text dimColor>PgDn: the text and your reply</Text>}
+
+      {reading.messages.length <= 1 && <Text dimColor>you asked: {reading.asked}</Text>}
+      {reading.messages.map((message, i) => (
+        <Box key={`message-${i}`} flexDirection="column">
+          <Text>
+            <Text weight="bold">{message.who}</Text>
+            <Text dimColor> · {localTime(message.ts)}</Text>
+          </Text>
+          <Markdown text={message.text} dimColor={message.role === 'author'} />
+          {message.role === 'ai' && message.id !== reading.id && (
+            <Button key={`thread-${message.id}`} plain onPress={() => props.onOpen(message.id)}>
+              <Text color="info">↳ open this one to decide on it</Text>
             </Button>
-          ))}
+          )}
         </Box>
-      )}
-      <Text dimColor>you asked: {reading.asked}</Text>
-      <Text weight="bold">it said:</Text>
-      <Markdown text={reading.text} />
+      ))}
       {reading.reply !== '' && (
         <Box flexDirection="column">
-          <Text weight="bold">Claude then said:</Text>
+          <Text weight="bold">Claude added:</Text>
           <Markdown text={reading.reply} dimColor />
         </Box>
       )}
+
+      {last?.role === 'author' && <Text color="info">Waiting for {answering}…</Text>}
+      {Input !== null && (
+        <Input
+          key={replyKey(reading)}
+          label="Reply"
+          placeholder={`to ${answering}; Enter sends it`}
+          value=""
+          rows={2}
+          submitLabel="send"
+          onSubmit={(text: string) => props.onSendReply(text)}
+        />
+      )}
+
+      <Box flexDirection="row">
+        {Input === null && <Button key="reading-reply-box" label="Reply" hotkey="y" onPress={() => props.onReply(false)} />}
+        {Input !== null && <Button key="reading-reply" label="Reply" hotkey="y" onPress={() => props.onReply(true)} />}
+        <Button
+          key="reading-summarize"
+          label={reading.isSummarizing ? 'Reading your diff…' : 'What did I change since?'}
+          hotkey="c"
+          onPress={props.onSummarize}
+        />
+        {reading.persona !== '' && (
+          <Button key="reading-remember" label={reading.isProposing ? 'Thinking…' : 'Remember'} hotkey="m" onPress={props.onRemember} />
+        )}
+      </Box>
     </Box>
   )
 }
+
+const replyKey = (reading: Reading): string => `reply-${reading.id}-${reading.repliesSent}`
 
 /** Claude Code's own step, as one dim line (calm) or nothing (focus). */
 export function drawToolLine($: Engine, e: RenderInput, props: { label: string; isRunning: boolean; isHidden: boolean }) {
@@ -2076,7 +2089,7 @@ async function annotate($: Engine, cfg: Config, ref: string, use: string, note =
 // ===== reading one AI input whole =====
 
 const NO_READING: ReadingState = { open: null }
-const readingAtom = atom({ plugin: 'cowrite', key: 'reading' } as const, NO_READING, { shape: 'reading-3' })
+const readingAtom = atom({ plugin: 'cowrite', key: 'reading' } as const, NO_READING, { shape: 'reading-4' })
 // What the comment field holds as typed: kept outside the atom so a keystroke redraws nothing.
 let typedNote = ''
 
@@ -2091,26 +2104,9 @@ async function openTurn($: Engine, id: string): Promise<void> {
   const turn = snapshot.stats.open.find(t => t.id === id) ?? snapshot.stats.recent.find(t => t.id === id)
   const persona = prompt.agent ?? response.personas[0]
   const isReport = prompt.origin === 'agent'
-  const prompts = entries.filter((x): x is PromptEntry => x.type === 'prompt')
-  const byId = (ref: string | undefined) => (ref === undefined ? undefined : prompts.find(x => x.id === ref))
-  const link = (p: PromptEntry): ThreadLink => {
-    const who = p.agent ?? entries.find(x => x.type === 'response' && x.ref === p.id && x.personas[0] !== undefined)
-    const name = typeof who === 'string' ? who : who?.type === 'response' ? who.personas[0] : undefined
-    return { id: p.id, ts: p.ts, who: name !== undefined ? personaById(name)?.name ?? name : 'Claude' }
-  }
-  // the thread: a persona's answer sits behind the author's reply, which sits behind the feedback;
-  // Claude's own answer to a reply is that reply's turn itself
-  const authorReply = isReport ? byId(prompt.replyTo) : prompt.replyTo !== undefined ? prompt : undefined
-  const parent = byId(authorReply?.replyTo)
-  const replies = prompts
-    .filter(p => p.replyTo === id && p.origin === undefined)
-    .map(r => prompts.find(p => p.replyTo === r.id && p.origin === 'agent') ?? r)
-    .filter(p => entries.some(x => x.type === 'response' && x.ref === p.id))
-    .map(link)
+  const authorReply = isReport ? entries.find((x): x is PromptEntry => x.type === 'prompt' && x.id === prompt.replyTo) : prompt.replyTo !== undefined ? prompt : undefined
   typedNote = ''
-  // for Remember: the discussion this input closes (the feedback it answers and the author's reply) and the persona's brief
-  const feedbackText = parent === undefined ? '' : readable(parent.origin === 'agent' ? parent.text : (entries.find(x => x.type === 'response' && x.ref === parent.id) as { answer?: string } | undefined)?.answer ?? '')
-  const thread = authorReply === undefined || parent === undefined ? null : { feedback: feedbackText, reply: replyWords(authorReply.text) }
+  const messages = threadOf(entries, id)
   const brief = persona === undefined ? '' : ((await readBriefs($, snapshot.paper.root).catch(() => ({}) as Record<string, string>))[persona] ?? '')
   const open: Reading = {
     id,
@@ -2118,10 +2114,10 @@ async function openTurn($: Engine, id: string): Promise<void> {
     category: turn?.category ?? prompt.category,
     who: persona !== undefined ? personaById(persona)?.name ?? persona : 'Claude',
     persona: persona ?? '',
-    parent: parent === undefined ? null : link(parent),
-    replies,
+    messages,
+    repliesSent: 0,
     brief,
-    thread,
+    thread: discussionOf(messages),
     proposal: '',
     proposed: '',
     proposalRef: '',
@@ -2133,12 +2129,103 @@ async function openTurn($: Engine, id: string): Promise<void> {
           ? 'its report on your text'
           : readable(prompt.text) || '(no text)',
     text: (isReport ? readable(prompt.text) : readable(response.answer)) || '(no text)',
-    reply: isReport ? readable(response.answer) : '',
+    reply: isReport && addsToReport(readable(prompt.text), readable(response.answer)) ? readable(response.answer) : '',
     note: '',
     summary: '',
     isSummarizing: false,
   }
   await update($, readingAtom, () => ({ open }))
+}
+
+/** The whole thread an input is part of, from its first feedback on, oldest first. */
+function threadOf(entries: readonly LogEntry[], id: string): ThreadMessage[] {
+  const prompts = entries.filter((x): x is PromptEntry => x.type === 'prompt')
+  const responseOf = (ref: string) => entries.find((x): x is ResponseEntry => x.type === 'response' && x.ref === ref)
+  let root = prompts.find(p => p.id === id)
+  while (root?.replyTo !== undefined) {
+    const up = prompts.find(p => p.id === root!.replyTo)
+    if (up === undefined) break
+    root = up
+  }
+  if (root === undefined) return []
+  const answerOf = (p: PromptEntry): ThreadMessage => {
+    const reply = responseOf(p.id)
+    const persona = p.agent ?? reply?.personas[0] ?? ''
+    const text = p.origin === 'agent' ? readable(p.text) : readable(reply?.answer ?? '')
+    return { id: p.id, role: 'ai', who: persona === '' ? 'Claude' : personaById(persona)?.name ?? persona, persona, ts: p.ts, text: text || '(no text)' }
+  }
+  const out: ThreadMessage[] = [answerOf(root)]
+  const walk = (parent: string): void => {
+    for (const child of prompts.filter(p => p.replyTo === parent).sort((a, b) => a.ts.localeCompare(b.ts))) {
+      if (child.origin === 'agent') out.push(answerOf(child))
+      else {
+        out.push({ id: child.id, role: 'author', who: 'You', persona: '', ts: child.ts, text: replyWords(child.text) || '(no text)' })
+        const reply = responseOf(child.id)
+        // a reply that only sent for the persona has no answer of its own: the persona's comes as its own entry
+        if (reply !== undefined && reply.agents === undefined) out.push(answerOf(child))
+      }
+      walk(child.id)
+    }
+  }
+  walk(root.id)
+  return out
+}
+
+/** What Remember reads: the feedback and what the author said about it; null before anyone replied. */
+function discussionOf(messages: readonly ThreadMessage[]): { feedback: string; reply: string } | null {
+  const said = messages.filter(m => m.role === 'author').map(m => m.text)
+  return said.length === 0 || messages[0] === undefined ? null : { feedback: messages[0].text, reply: said.join('\n') }
+}
+
+/** A reply or an answer came in: the opened view's thread catches up, and what the author is typing stays. */
+async function refreshThread($: Engine): Promise<void> {
+  const open = (await read($, readingAtom)).open
+  if (open === null) return
+  const paper = await findPaper($)
+  if (paper === null) return
+  const messages = threadOf(await readLog($, paper.root), open.id)
+  await update($, readingAtom, s => (s.open?.id === open.id ? { open: { ...s.open, messages, thread: discussionOf(messages) } } : s))
+}
+
+/** The Reply button: the keyboard goes to the field, which the pane scrolls to. */
+async function focusReply($: Engine): Promise<void> {
+  const open = (await read($, readingAtom)).open
+  if (open !== null) await $.ui.focus({ requestId: PANE, key: replyKey(open) }).catch(() => undefined)
+}
+
+/**
+ * The author's reply, sent from the pane. It goes to the persona who spoke last in the thread, as a turn
+ * of its own: the log keeps the thread, and the answer comes back into the opened view.
+ */
+async function sendReply($: Engine, cfg: Config, typed: string): Promise<void> {
+  const words = typed.trim()
+  const open = (await read($, readingAtom)).open
+  const paper = await findPaper($)
+  if (words === '' || open === null || paper === null) return
+  const to = [...open.messages].reverse().find(m => m.role === 'ai')
+  if (to === undefined) return
+  const when = `${open.category} feedback from ${localTime(to.ts)}, log entry ${to.id}`
+  const text =
+    to.persona === ''
+      ? `About your ${when}: ${words}`
+      : `Reply to ${to.who} (the cowrite:${to.persona} agent) on its ${when}. Hand it the feedback and my reply, relay its answer as given, no rewritten text. My reply: ${words}`
+  const id = newId()
+  turn = { id, personas: new Set(), tools: new Set(), agents: {} }
+  if (to.persona !== '') pendingReply = { ref: id, persona: to.persona }
+  await appendLog($, paper.root, {
+    type: 'prompt',
+    id,
+    ts: new Date().toISOString(),
+    session: await $.session.id(),
+    paper: paper.name,
+    category: open.category,
+    replyTo: to.id,
+    text,
+  }).catch(() => undefined)
+  await update($, readingAtom, s => (s.open?.id === open.id ? { open: { ...s.open, repliesSent: s.open.repliesSent + 1 } } : s))
+  await refreshThread($)
+  await refresh($, cfg)
+  void $.prompt.submit({ text })
 }
 
 /** The badge on a persona's card: the Feedback tab, opened on that persona's newest open input. */
@@ -2259,6 +2346,8 @@ async function rememberFrom($: Engine, cfg: Config): Promise<void> {
   }
   await patch({ isProposing: false, proposal: lines, proposed: lines, proposalRef: id })
   await refresh($, cfg)
+  // the pane scrolls to where the keyboard is, so the author sees what came back
+  await $.ui.focus({ requestId: PANE, key: 'remember-save' }).catch(() => undefined)
 }
 
 /** The field's text, as the author edits the proposal. */
@@ -2828,6 +2917,7 @@ export const register: Register = (on, options) => {
       ...(replyTo !== undefined ? { replyTo } : {}),
       text: e.text,
     }).catch(() => undefined)
+    await refreshThread($).catch(() => undefined)
     return result
   }).catch(($, e, next) => next(e))
 
@@ -2990,6 +3080,7 @@ export const register: Register = (on, options) => {
       await update($, bandHiddenAtom, () => false)
     }
     await refresh($, cfg, true, isAiText)
+    await refreshThread($).catch(() => undefined)
     return result
   })
 
@@ -3114,7 +3205,8 @@ export const register: Register = (on, options) => {
       onCloseReading: () => void update($, readingAtom, () => NO_READING),
       onSummarize: () => void summarizeChanges($, cfg),
       onNote: (text, isTyped) => void setNote($, text, isTyped),
-      onReply: () => void replyTo($),
+      onReply: hasField => void (hasField ? focusReply($) : replyTo($)),
+      onSendReply: text => void sendReply($, cfg, text),
       onRemember: () => void rememberFrom($, cfg),
       onProposal: text => void setProposal($, text),
       onRememberSave: () => void saveRemembered($, cfg),

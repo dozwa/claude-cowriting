@@ -98,6 +98,18 @@ export type RecentTurn = {
   isAiText: boolean
 }
 
+/** One message of a feedback thread: the feedback, the author's replies, the answers. */
+export type ThreadMessage = {
+  /** the log entry; a reply Claude answered itself is one entry with two messages */
+  id: string
+  role: 'ai' | 'author'
+  who: string
+  /** the persona's agent id; '' for the author and for Claude */
+  persona: string
+  ts: string
+  text: string
+}
+
 /** One AI input opened in the pane to read whole, comment on and classify. */
 export type Reading = {
   id: string
@@ -107,15 +119,15 @@ export type Reading = {
   who: string
   /** the persona's agent id, for a reply; '' when Claude itself answered */
   persona: string
-  /** the feedback this input answers, when it is a reply's answer; null for a first input */
-  parent: ThreadLink | null
-  /** the answers the author's replies to this input got, oldest first */
-  replies: ThreadLink[]
+  /** the whole thread this input is part of, oldest first */
+  messages: ThreadMessage[]
+  /** replies sent from this view: a new one empties the field */
+  repliesSent: number
   /** what the author asked, or what the turn was */
   asked: string
   /** the whole answer, readable; for a persona's report, the report itself */
   text: string
-  /** what Claude added after a persona's report; '' otherwise */
+  /** what Claude added after a persona's report, if it adds something; '' otherwise */
   reply: string
   /** the comment the field shows; typing replaces it until another is drawn */
   note: string
