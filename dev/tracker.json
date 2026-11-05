@@ -1012,8 +1012,8 @@
     {
       "id": "R1.3",
       "text": "Language feedback may give the corrected form with the rule behind it; style gets hints, no rewrites",
-      "status": "partly",
-      "note": "Rewritten to match the product (finding 5). Rule only so far; to check under test type B"
+      "status": "met",
+      "note": "Language skill gives corrected forms with the rule; style gets hints. Real session; one run"
     },
     {
       "id": "R1.4",
@@ -1024,8 +1024,8 @@
     {
       "id": "R2.1",
       "text": "Manuscript read-only for Claude",
-      "status": "partly",
-      "note": "Layers exist and the README states their limits; real bypasses untested"
+      "status": "met",
+      "note": "Guard held in real sessions on plain writes, the sandbox on hidden ones. F11 on the author's files is on the manual list; limits are in the README"
     },
     {
       "id": "R2.2",
@@ -1036,8 +1036,8 @@
     {
       "id": "R3.1",
       "text": "Every prompt and answer logged, append-only",
-      "status": "partly",
-      "note": "Append-only now holds (F15); whether every prompt and answer is logged is still to be checked by test type E"
+      "status": "met",
+      "note": "Paper trail: every prompt and answer logged, with model and versions. Append-only guard held in a real session; limits are in the README"
     },
     {
       "id": "R3.2",
@@ -2508,6 +2508,30 @@
       "version": "0.3.5",
       "commit": "391efc0",
       "note": "The hint, the order and results above the text are built. The pane's height and keys it doesn't handle reaching the prompt box belong to Claude Code, so they stay; both are harmless"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R1.3",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "9d09b1d",
+      "note": "Language skill gives corrected forms with the rule; style gets hints. Real session; one run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R3.1",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "9d09b1d",
+      "note": "Paper trail: every prompt and answer logged, with model and versions. Append-only guard held in a real session; limits are in the README"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R2.1",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "9d09b1d",
+      "note": "Guard held in real sessions on plain writes, the sandbox on hidden ones. F11 on the author's files is on the manual list; limits are in the README"
     }
   ]
 }

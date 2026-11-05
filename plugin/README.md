@@ -33,7 +33,7 @@ Try these in a paper folder. The repository's [demo paper](https://github.com/do
 - **Runs** its Python tools (standard library only) from the plugin folder: the AI log, the scaffold, the bibliography reader, the style profile, the DOI check and the Zotero search. With pandoc installed, `.docx` and `.odt` manuscripts are converted to text for reading.
 - **Commits** with git when autosave is on (the default): `manuscript/` and `ai-log/`, under your own git identity, after you pause for 30 seconds. Nothing is pushed.
 - **Connects** to three places, and only when you ask: Crossref (`api.crossref.org`) to verify DOIs and look up titles during `/cowrite:sources`, `/cowrite:submit` and `verify_refs.py`; your running Zotero 7 on `localhost` when the local API is enabled; and the web through Claude Code's own search tools when a persona looks for literature. Nothing else leaves your machine. What Claude itself sees is governed by your Claude Code account and settings.
-- **Shows** a pane beside the chat with the party (each persona with a count of its feedback still to classify), the open feedback to read, comment on, classify and reply to, the live hints, the log, your word counts and, optionally, a token meter. A reply is written into the prompt box for the author to finish and send; the plugin submits nothing on its own.
+- **Shows** a pane beside the chat with the party (each persona with a count of its feedback still to classify), the open feedback to read, comment on, classify and reply to, the live hints, the log, your word counts and, optionally, a token meter. The plugin sends a prompt only when the author asks in the pane: pressing Enter in the reply field, or summoning a persona.
 
 ## What the mod does, hook by hook
 
