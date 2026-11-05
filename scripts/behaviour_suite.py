@@ -128,8 +128,8 @@ def run_once(case: dict, model: str, run: int) -> dict:
         except subprocess.TimeoutExpired:
             out.write("\nStopped: too long.\n")
     text = answers_in(paper)
-    # a paper that is only set up in this session may log nothing of it, so its files are what counts
-    if not text.strip() and case.get("workspace") != "empty":
+    # a command answered by the plugin itself logs nothing, and neither does setting up a paper: their files are what counts
+    if not text.strip() and any(rule["kind"] != "file_contains" for rule in case["rules"]):
         return {"id": case["id"], "paper": paper, "misses": [], "isEmpty": True}
     misses = []
     for rule in case["rules"]:
