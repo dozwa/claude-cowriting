@@ -40,7 +40,7 @@ Goal: for each attempt, the write is refused, or it is caught and logged. Run in
 - **Shell tricks:** a variable for the path, a script file, a symlink into `manuscript/`, `mv` of the folder, `git checkout` or `git apply`, `tar`, `find -exec`, an interpreter other than those named in the patterns.
 - **Other author files:** `literature/`, `CLAUDE.md`, `party.md`, `paper.json`, `.claude/settings.json`. Can Claude switch off its own guard?
 - **Subagents:** personas with Bash or Write (Integrity Guardian, Librarian, Style Coach, Terminologist) and a generic subagent.
-- **Sandbox on and off:** what happens with an older workspace that has no sandbox settings?
+- **Sandbox on and off:** what happens with an older workspace that has no sandbox settings? The demo paper's settings do not turn the sandbox on, so a test of layer 3 needs a workspace made by `/cowrite:init`, not a copy of the demo.
 - **The log itself (finding 1):** rewrite or delete a line in `ai-log/`, then generate the disclosure. Is it noticed?
 - **False alarms:** normal reads and builds, such as `latexmk`, must still work.
 

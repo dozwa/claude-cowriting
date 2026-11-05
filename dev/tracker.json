@@ -14,7 +14,8 @@
       "title": "The log is append-only by convention only: `ai-log/` is one of Claude's write places, is not on the sandbox deny list and is not an author file, so the comparison does not cover it",
       "evidence": "`CLAUDE_WRITES` in `plugin/hooks/core.ts`; the \"ok\" list in `plugin/tests/cowriting.test.tsx`; `plugin/templates/workspace/.claude/settings.json`",
       "why": "The README says append-only, and the disclosure is built from this log",
-      "status": "open"
+      "status": "fixed",
+      "note": "Guard built and confirmed in a real session on 2026-11-05 (F15). Remaining limits are in the README"
     },
     {
       "id": 2,
@@ -70,6 +71,13 @@
       "title": "The guard can refuse harmless shell commands: a long script that only mentioned the word manuscript in its text, and wrote elsewhere, was refused during plugin development on 2026-11-05. The exact trigger is not yet pinned down",
       "evidence": "Observed in a session with the plugin installed; refusal text was the GUARD_MESSAGE of `plugin/hooks/core.ts`",
       "why": "False alarms teach authors and Claude to work around the guard. To reproduce under test type G",
+      "status": "open"
+    },
+    {
+      "id": 10,
+      "title": "Refused attempts leave no trace: a refused write to the log or the author's files is not logged, and a refused tool is missing from the response's `tools_used`. The disclosure's heading *Attempts to change the AI log afterwards* therefore lists only rewrites that got through",
+      "evidence": "Real session on 2026-11-05: steps 1 and 2 were refused, and the log has one guard entry (step 4) and `tools_used: [\"Bash\"]`",
+      "why": "The author signs this. Either log refusals too, or word the heading so it does not read as complete",
       "status": "open"
     }
   ],
@@ -315,7 +323,7 @@
       "automated": "None",
       "add": "G, and a decision",
       "status": {
-        "any": "testing"
+        "any": "pass"
       }
     },
     {
@@ -965,7 +973,7 @@
       "id": "R3.1",
       "text": "Every prompt and answer logged, append-only",
       "status": "partly",
-      "note": "Logging exists; append-only guard built, not yet attacked in a real session (finding 1)"
+      "note": "Append-only now holds (F15); whether every prompt and answer is logged is still to be checked by test type E"
     },
     {
       "id": "R3.2",
@@ -1555,6 +1563,32 @@
       "version": "0.3.5",
       "commit": "af82bb3",
       "note": "Logging exists; append-only guard built, not yet attacked in a real session (finding 1)"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F15",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "G",
+      "commit": "d6a9126",
+      "note": "Real session, Haiku, sandbox off: overwrite by shell and Write refused, append passed, rewrite by script restored, altered copy kept, guard entry written, disclosure lists it (en md, de tex). Deleting the file: harness only"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 1",
+      "status": "fixed",
+      "version": "0.3.5",
+      "commit": "d6a9126",
+      "note": "Guard built and confirmed in a real session on 2026-11-05 (F15). Remaining limits are in the README"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R3.1",
+      "status": "partly",
+      "version": "0.3.5",
+      "commit": "d6a9126",
+      "note": "Append-only now holds (F15); whether every prompt and answer is logged is still to be checked by test type E"
     }
   ]
 }
