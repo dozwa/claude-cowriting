@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Count, FocusMode, GameFile, LiveHint, LogEntry, Paper, PointStatus, PromptEntry, Reading, ReadingState, RecentTurn, Review, ScopePoint, ScopeProgress, ScopeSection, Snapshot, Stage, Tab, ThreadLink, Usage, WatchState } from '../types'
-import { LOG_GUARD_MESSAGE, bashRewritesLog, isLogPath, rewrittenLogFiles, absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, bashTouchesManuscript, bashWritesTo, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, manuscriptParents, manuscriptPathsIn, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
+import { LOG_GUARD_MESSAGE, foldersUp, isLogPath, mentionsPath, relativeTo, rewrittenLogFiles, shellWrites, strayLogFiles, absolutePath, ACHIEVEMENTS, advanceGame, AI_TEXT_MARKER, appendBrief, authorFileOf, authorGuardMessage, autosaveMessage, BRIEF_FILE, briefFor, briefLines, briefProposalPrompt, briefProposalSystem, categoryFor, changedFiles, changedParagraphs, changedPaths, changeSummaryPrompt, changeSummarySystem, computeStats, countWords, cut, cutDiff, EMPTY_STATS, EMPTY_USAGE, GUARD_MESSAGE, guardInputOf, handBackAgentId, isAuthorsName, isManuscriptPath, liesIn, limitCrossed, localTime, monthFile, NEW_GAME, newId, overrelianceNudge, parseBriefs, parseHints, parseLog, personaForAgent, plural, readable, READ_ONLY_TOOLS, setBrief, shellPath, toUsage, usageParts, usageShort, USE_LABELS, WATCH_DEFAULT, watchExcerpt, watchSystem, xpForLevel } from './core'
 import type { FileChange, Fingerprint, Paragraph } from './core'
 import { CUSTOM_TOOLS, customDescription, customPersonas, DEFAULT_PARTY, isCustomId, parsePersonaFile, partyPersonas, personaById, personaFileSkeleton, PERSONAS, setCustomPersonas } from './personas'
 import type { CustomPersona, Persona } from './personas'
@@ -235,19 +235,24 @@ export async function snapshotLog($: Engine, root: string): Promise<Record<strin
   return withLog(root, async () => {
     const out: Record<string, string> = {}
     for (const entry of await $.fs.list(dir)) {
-      if (entry.kind === 'file' && entry.name.endsWith('.jsonl')) out[`ai-log/${entry.name}`] = await $.fs.read(join(dir, entry.name))
+      if (entry.kind === 'file' && entry.name !== '.gitkeep') out[`ai-log/${entry.name}`] = await $.fs.read(join(dir, entry.name)).catch(() => '')
     }
     return out
   })
 }
 
-/** Put rewritten log files back as they were; what they had become is kept beside the paper's state. */
-export async function restoreLog($: Engine, root: string, files: readonly string[], before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): Promise<void> {
+/** Undo what a tool call did to the log: put rewritten files back, take new ones out. What they had become is kept beside the paper's state. */
+export async function restoreLog($: Engine, root: string, rewritten: readonly string[], strays: readonly string[], before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): Promise<void> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const keep = (file: string) => $.fs.write(join(root, '.cowriting', 'log-rewrites', `${stamp}-${file.split('/').pop()}`), after[file]!)
   await withLog(root, async () => {
-    for (const file of files) {
-      if (after[file] !== undefined) await $.fs.write(join(root, '.cowriting', 'log-rewrites', `${stamp}-${file.split('/').pop()}`), after[file]!)
+    for (const file of rewritten) {
+      if (after[file] !== undefined) await keep(file)
       await $.fs.write(join(root, file), before[file]!)
+    }
+    for (const file of strays) {
+      await keep(file)
+      await $.process.run(['rm', '-f', '--', join(root, file)])
     }
   })
 }
@@ -384,14 +389,12 @@ async function resolvePath($: Engine, arg: string): Promise<string> {
 }
 
 /** Is one of these paths in a paper's `manuscript` folder? One that can't be told counts as yes. */
-async function namesPaperManuscript($: Engine, paths: readonly string[]): Promise<boolean> {
-  for (const path of paths) {
-    // a path that doesn't show where it points names no paper: outside a paper, the guard acts only on what it can see
-    for (const parent of manuscriptParents(path) ?? []) {
-      if ((await paperAt($, parent)) !== undefined) return true
-    }
+/** The paper this path lies in, nearest first; a path that doesn't show where it points lies in none. */
+export async function paperRootOf($: Engine, path: string): Promise<string | null> {
+  for (const folder of foldersUp(path)) {
+    if ((await paperAt($, folder)) !== undefined) return folder
   }
-  return false
+  return null
 }
 
 /** `$HOME`, read only when the text being resolved has a `~` to expand. */
@@ -399,32 +402,42 @@ async function homeFor($: Engine, text: string): Promise<string> {
   return text.includes('~') ? (await $.env.get('HOME')) ?? '' : ''
 }
 
-/** Does this file tool's path lie in a `manuscript` folder of a paper? The session's paper counts wherever in it the folder is. */
-async function fileHitsPaperManuscript($: Engine, path: string): Promise<boolean> {
-  if (!isManuscriptPath(path)) return false
-  const full = shellPath(path, await $.session.cwd(), await homeFor($, path))
-  const paper = await findPaper($)
-  if (paper !== null && liesIn(full, paper.root)) return true
-  // working inside a paper, a path that hides where it points is refused; elsewhere it is none of the guard's business
-  if (paper !== null && isWithin(await $.session.cwd(), paper.root) && manuscriptParents(full) === null) return true
-  return namesPaperManuscript($, [full])
+/** Why this file may not be written, or null. The one rule of the guard: only a paper's files are protected, wherever the session is. */
+async function refusalFor($: Engine, path: string, isAppend = false): Promise<string | null> {
+  const root = await paperRootOf($, path)
+  if (root === null) return null
+  if (isLogPath(path, root)) return isAppend ? null : LOG_GUARD_MESSAGE
+  const rel = relativeTo(path, root)
+  if (isManuscriptPath(rel)) return GUARD_MESSAGE
+  if (rel === '') return authorGuardMessage('the paper folder')
+  const file = authorFileOf(path, root)
+  return file === null ? null : authorGuardMessage(file)
 }
 
 /**
- * Would this command write to a `manuscript` folder of a paper? Working inside a paper, its text alone
- * decides, as it always did. Anywhere else only a path that visibly lies in a paper counts, so other
- * projects can use the word and a folder of that name freely.
+ * Why this call may not run, or null. Working inside a paper, a write the text can't place is refused
+ * if it names what is protected; anywhere else only what visibly lies in a paper counts.
  */
-async function bashHitsPaperManuscript($: Engine, command: string): Promise<boolean> {
-  if (!bashTouchesManuscript(command)) return false
+async function guardVerdict($: Engine, tool: string, path: string, command: string): Promise<string | null> {
   const cwd = await $.session.cwd()
-  const paper = await findPaper($)
-  if (paper !== null && isWithin(cwd, paper.root)) return true
-  const paths = manuscriptPathsIn(command, cwd, await homeFor($, command))
-  return paths !== null && namesPaperManuscript($, paths)
+  const home = await homeFor($, path + command)
+  const here = await paperRootOf($, cwd)
+  const protectedNames = async () => (here === null ? [] : ['manuscript', 'ai-log', ...(await authorNames($, here))])
+  if (tool !== 'Bash') {
+    const full = shellPath(path, cwd, home)
+    if (foldersUp(full).length > 0 && !/[$`]/.test(full)) return refusalFor($, full)
+    return mentionsPath(path, await protectedNames()) ? authorGuardMessage(path) : null
+  }
+  const writes = shellWrites(command, cwd, home)
+  for (const write of writes.paths) {
+    const refusal = await refusalFor($, write.path, write.isAppend)
+    if (refusal !== null) return refusal
+  }
+  if (here === null) return null
+  const names = await protectedNames()
+  const cantPlace = writes.hidden.length > 0 || writes.isOpaque
+  return cantPlace && mentionsPath(command, names) ? authorGuardMessage('the file this command writes') : null
 }
-
-const isWithin = (path: string, root: string): boolean => path === root || liesIn(path, root)
 
 async function kindOf($: Engine, path: string): Promise<'file' | 'dir' | 'other' | 'none'> {
   return $.fs.stat(path).then(s => s.kind, () => 'none' as const)
@@ -1946,6 +1959,7 @@ type Config = {
 // Per-turn bookkeeping; a reload loses only the turn in flight.
 let model = 'unknown'
 let turn: { id: string; personas: Set<string>; tools: Set<string>; agents: Record<string, string> } | null = null
+const unanswered: NonNullable<typeof turn>[] = []
 // agentId → persona id of the subagents launched as personas; the log keeps it across reloads
 const spawned = new Map<string, string>()
 let watchTimer: { cancel: () => void } | null = null
@@ -2751,6 +2765,7 @@ export const register: Register = (on, options) => {
     const paper = await findPaper($)
     if (paper === null) return result
     const id = newId()
+    const earlier = turn
     turn = { id, personas: new Set(), tools: new Set(), agents: {} }
     // A subagent's report coming back is not the author's prompt: log it as that persona's turn.
     // known by the engine's frame around it, whatever origin this build stamps; never one the author typed
@@ -2761,6 +2776,8 @@ export const register: Register = (on, options) => {
         : personaById(spawned.get(agentId) ?? personaForAgent(await readLog($, paper.root), agentId) ?? '')
     if (agent !== undefined) turn.personas.add(agent.id)
     if (agentId !== undefined) await finishReview($, agentId)
+    // a report that arrives while a turn is open doesn't end that turn's claim to a response
+    if (agentId !== undefined && earlier !== null) unanswered.push(earlier)
     // A reply the author typed behind the pane's address line answers a logged input, and keeps its
     // category; the persona's answer that comes back for it answers the reply. That is the thread.
     const replied = e.origin?.kind === 'composer' ? replyAddress(e.text) : null
@@ -2817,29 +2834,11 @@ export const register: Register = (on, options) => {
     const path = String(input.file_path ?? input.notebook_path ?? '')
     const command = String(input.command ?? '')
     const isFileWrite = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)
-    // a paper's manuscript folder is refused wherever the paper is; a folder of that name in another project is not ours
-    if (isFileWrite && (await fileHitsPaperManuscript($, path))) return refuse($, tool, input, GUARD_MESSAGE)
-    if (tool === 'Bash' && (await bashHitsPaperManuscript($, command))) return refuse($, tool, input, GUARD_MESSAGE)
-    // inside the paper, everything but Claude's own places is the author's
-    const paper = READ_ONLY_TOOLS.has(tool) ? null : await findPaper($).catch(() => null)
-    if (paper !== null && (isFileWrite || tool === 'Bash')) {
-      const cwd = await $.session.cwd()
-      // from a folder outside the paper, a bare name means that folder's file: only the paper's full paths count
-      const isInside = isWithin(cwd, paper.root)
-      const inPaper = (name: string) => (isInside ? name : `${paper.root}/${name}`)
-      const isLog = (target: string) => {
-        const full = absolutePath(cwd, target)
-        return (isInside || full.startsWith('/')) && isLogPath(full, paper.root)
-      }
-      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog, [inPaper('ai-log')])) return refuse($, tool, input, LOG_GUARD_MESSAGE)
-      if (isFileWrite) {
-        const file = authorFileOf(absolutePath(cwd, path), paper.root)
-        if (file !== null) return refuse($, tool, input, authorGuardMessage(file))
-      } else {
-        const isAuthors = (target: string) => authorFileOf(absolutePath(cwd, target), paper.root) !== null
-        if (bashWritesTo(command, isAuthors, (await authorNames($, paper.root)).map(inPaper))) return refuse($, tool, input, authorGuardMessage('the file this command writes'))
-      }
+    if (isFileWrite || tool === 'Bash') {
+      const refusal = await guardVerdict($, tool, path, command)
+      if (refusal !== null) return refuse($, tool, input, refusal)
     }
+    const paper = READ_ONLY_TOOLS.has(tool) ? null : await findPaper($).catch(() => null)
 
     // an expert's file just written: load it now, so the agent exists from the next turn on
     if (paper !== null && isFileWrite && /(^|\/)party\/[^/]+\.md$/.test(absolutePath(await $.session.cwd(), path))) {
@@ -2865,16 +2864,23 @@ export const register: Register = (on, options) => {
     // the log may only grow: what a call rewrote anyway, however it got past the checks above, goes back
     const logAfter = logBefore === null ? null : await snapshotLog($, paper.root).catch(() => null)
     const rewritten = logBefore === null || logAfter === null ? [] : rewrittenLogFiles(logBefore, logAfter)
-    if (rewritten.length > 0) {
-      await restoreLog($, paper.root, rewritten, logBefore!, logAfter!).catch(() => undefined)
-      void reportGuard($, cfg, paper, tool, guardInputOf(tool, input), rewritten, `⚠ ${tool} rewrote the AI log (${rewritten.join(', ')}). It is restored and the attempt is logged; the altered copy is in .cowriting/log-rewrites/.`)
+    const strays = logBefore === null || logAfter === null ? [] : strayLogFiles(logBefore, logAfter, `ai-log/${monthFile(new Date())}`)
+    if (rewritten.length + strays.length > 0) {
+      await restoreLog($, paper.root, rewritten, strays, logBefore!, logAfter!).catch(() => undefined)
+      const files = [...rewritten, ...strays]
+      void reportGuard($, cfg, paper, tool, guardInputOf(tool, input), files, `⚠ ${tool} changed the AI log (${files.join(', ')}). That is undone and logged; the altered copy is in .cowriting/log-rewrites/.`)
     }
     if (before === null) return result
     const after = await fingerprintAuthorFiles($, paper).catch(() => null)
     const files = after === null ? [] : changedFiles(before, after)
     if (files.length > 0) void reportGuard($, cfg, paper, tool, guardInputOf(tool, input), files)
     return result
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'CoWriting: the manuscript guard failed, so the call was refused.' }))
+  }).catch(async ($, e, next) => {
+    if (next.called) return next(e)
+    // if the guard itself fails, a paper is worth refusing over; another project isn't
+    const here = await $.session.cwd().then(cwd => paperRootOf($, cwd)).catch(() => null)
+    return here === null ? next(e) : { deny: 'CoWriting: the manuscript guard failed, so the call was refused.' }
+  })
 
   // Subagents start through agent.spawn, not tool.call: this is where a summoned persona is counted.
   on('agent.spawn', async ($, e, next) => {
@@ -2928,6 +2934,20 @@ export const register: Register = (on, options) => {
     const paper = await findPaper($)
     if (paper === null) return result
     const isAiText = e.answer.includes(AI_TEXT_MARKER)
+    // the turns this one answer closes along with its own: each report still asks for a classification
+    for (const open of unanswered.splice(0)) {
+      await appendLog($, paper.root, {
+        type: 'response',
+        ref: open.id,
+        ts: new Date().toISOString(),
+        model,
+        personas: [...open.personas],
+        ...(Object.keys(open.agents).length > 0 ? { agents: open.agents } : {}),
+        tools_used: [...open.tools],
+        ai_text_flag: false,
+        answer: '',
+      }).catch(() => undefined)
+    }
     await appendLog($, paper.root, {
       type: 'response',
       ref: done.id,

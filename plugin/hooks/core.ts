@@ -279,15 +279,15 @@ export const computeStats = (entries: readonly LogEntry[], now: Date): Stats => 
 //
 // Inside a paper, Claude writes only in its own places (`CLAUDE_WRITES`); every other file is
 // the author's. Three layers, each honest about its reach:
-// 1. File tools (Write, Edit, …) are refused by path: `..` is resolved, case is ignored. A
-//    paper's `manuscript` folder is refused wherever the paper is (`manuscriptParents`), the rest
-//    of the author's files inside the paper. A folder of that name in another project is left alone.
-// 2. Shell commands are refused by pattern. This is a best effort: a variable, a script file or
-//    a symlink can get past it, and the README says so. The workspace's settings add the OS
-//    sandbox for what the patterns cannot see.
+// 1. File tools (Write, Edit, …) are refused by the file they name: `..` is resolved, case is ignored.
+// 2. Shell commands are read for where they write (`shellWrites`), and refused by the same rule. This
+//    is a best effort: a variable, a script file or a symlink can get past it, and the README says so.
+//    The workspace's settings add the OS sandbox for what the text cannot show.
 // 3. After any other tool ran, the author's files are compared with how they were before.
 //    A change is logged as a `guard` entry (see `changedFiles`), shown to the author, and listed
 //    in the disclosure. What layer 2 misses, layer 3 records.
+//
+// The rule for one file: find the paper it lies in, if any. No paper, none of the guard's business.
 
 /**
  * Where Claude may write inside a paper, relative to its root: folders and single files.
@@ -297,24 +297,6 @@ export const CLAUDE_WRITES = {
   folders: ['notes/ai', 'ai-log', 'disclosure', 'party', '.cowriting', 'build'],
   files: ['scope.md'],
 } as const
-
-const WRITE_PATTERNS = [
-  /\btee\b/,
-  /\bsed\s+(-[a-zA-Z]*i|--in-place)/,
-  /\bperl\s+-[a-zA-Z]*i/,
-  /\b(mv|cp|rm|rmdir|truncate|touch|ln|dd|install|rsync|patch)\b/,
-  /\bgit\s+(checkout|restore|reset|apply|stash|mv|rm|clean)\b/,
-  /\bopen\([^)]*['"][wa+]/,
-  /\b(write_text|writeFile|writeFileSync|write_bytes)\b/,
-  /\s-o\s/, // pandoc -o, sort -o, …
-  /\b(vim?|nvim|nano|emacs|ed|ex)\b/,
-  /--(write|in-place|fix|output)\b/,
-  /\b(python3?|node|ruby|perl)\s+-[ce]\b/,
-]
-
-// a redirect target; a digit before `>` is a file descriptor (2>), not a file
-const REDIRECT = /(?:^|[^0-9&<])>{1,2}\s*['"]?([^\s'"&|;)]+)/g
-const CD = /\bcd\s+['"]?([^\s'";&|]+)/g
 
 const globToRegExp = (segment: string) =>
   new RegExp(`^${segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i')
@@ -329,7 +311,7 @@ const segmentsOf = (path: string): string[] => {
   return out
 }
 
-/** Does this path lie in a `manuscript` folder? Case is ignored, `..` resolved, a glob may match it. */
+/** Does this path, relative to a paper, lie in a `manuscript` folder? Case is ignored, `..` resolved, a glob may match it. */
 export const isManuscriptPath = (path: string): boolean =>
   segmentsOf(path).some(s => (/[*?]/.test(s) ? globToRegExp(s).test('manuscript') : s.toLowerCase() === 'manuscript'))
 
@@ -340,7 +322,7 @@ const isClaudesPlace = (rel: readonly string[]): boolean => {
   if (lower.length === 1 && CLAUDE_WRITES.files.some(f => f === lower[0])) return true
   return CLAUDE_WRITES.folders.some(folder => {
     const parts = folder.split('/')
-    return lower.length > parts.length && parts.every((p, i) => p === lower[i])
+    return lower.length >= parts.length && parts.every((p, i) => p === lower[i])
   })
 }
 
@@ -366,28 +348,6 @@ export const authorFileOf = (path: string, root: string): string | null => {
   return isClaudesPlace(rel) ? null : rel.join('/')
 }
 
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-/**
- * Would this shell command change a file `isTarget` recognises, as far as its text shows?
- * A redirect into it, a `cd` into it followed by any redirect or write, or a writing command
- * with one of `names` among its words as a path (`manuscript/`, `"manuscript"`, …; not inside a
- * longer word or a search pattern). A variable or a script hiding the path gets past this; the
- * after-the-fact comparison (`changedFiles`) is for those.
- */
-export const bashWritesTo = (command: string, isTarget: (path: string) => boolean, names: readonly string[]): boolean => {
-  const targets = [...command.matchAll(REDIRECT)].map(m => m[1]!)
-  if (targets.some(isTarget)) return true
-  const enters = [...command.matchAll(CD)].some(m => isTarget(m[1]!))
-  const writes = WRITE_PATTERNS.some(p => p.test(command))
-  if (enters && (writes || targets.some(t => !t.startsWith('/dev/')))) return true
-  const mentions = names.some(n => new RegExp(`(^|[\\s'"=(/])${escapeRegExp(n)}(/|[\\s'")]|$)`, 'i').test(command))
-  return mentions && writes
-}
-
-/** Would this shell command change a file in a `manuscript` folder? Whose folder it is, is for `manuscriptPathsIn` to tell. */
-export const bashTouchesManuscript = (command: string): boolean => bashWritesTo(command, isManuscriptPath, ['manuscript'])
-
 const isRooted = (path: string) => path.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(path)
 
 /** Does this path lie below `root`? `..` is resolved and case ignored. */
@@ -403,42 +363,250 @@ export const shellPath = (path: string, base: string, home: string): string => {
   return isRooted(path) || /^[$~]/.test(path) ? path : `${base}/${path}`
 }
 
-/**
- * The folders that directly hold a `manuscript` folder on this rooted path: where a `paper.json`
- * makes it a paper's. Null when that can't be told, because the path isn't rooted or a variable or
- * glob comes before the first `manuscript`. The guard refuses those, since they could name a paper.
- */
-export const manuscriptParents = (path: string): string[] | null => {
-  if (!isRooted(path)) return null
+/** The folders above this rooted path, and the path itself, nearest first: where its paper could be. Globs and variables can't be one. */
+export const foldersUp = (path: string): string[] => {
+  if (!isRooted(path)) return []
   const prefix = path.startsWith('/') ? '/' : ''
   const segs = segmentsOf(path)
-  const parents: string[] = []
-  for (const [i, s] of segs.entries()) {
-    if (/[$*?[`]/.test(s)) return parents.length > 0 ? parents : null
-    if (s.toLowerCase() === 'manuscript') parents.push(prefix + segs.slice(0, i).join('/'))
+  const out: string[] = []
+  for (let i = segs.length; i > 0; i--) {
+    const folder = prefix + segs.slice(0, i).join('/')
+    if (!/[$*?[`]/.test(folder)) out.push(folder)
   }
-  return parents
+  return out
 }
 
-// a shell word: quotes hold it together and go, a backslash keeps the next character
-const SHELL_WORD = /(?:\\.|"[^"]*"|'[^']*'|[^\s'"=();&|<>,`])+/g
-const unquoted = (word: string) => word.replace(/\\(.)|"([^"]*)"|'([^']*)'/g, (_, a, b, c) => a ?? b ?? c ?? '')
+/** The path relative to a folder it lies in or is. */
+export const relativeTo = (path: string, root: string): string => segmentsOf(path).slice(segmentsOf(root).length).join('/')
 
-/**
- * Every place this command's `manuscript` words could name: a relative word from the session's
- * folder and from each folder the command `cd`s to. Null when the text can't tell (a command
- * substitution, or no such word at all, as in `host:manuscript/x`); the guard refuses those.
- */
-export const manuscriptPathsIn = (command: string, cwd: string, home: string): string[] | null => {
-  if (/\$\(|`/.test(command)) return null
-  const words = (command.match(SHELL_WORD) ?? []).map(unquoted)
-  const bases = [cwd]
-  for (const [i, word] of words.entries()) {
-    if (word === 'cd' && words[i + 1] !== undefined) bases.push(shellPath(words[i + 1]!, bases[bases.length - 1]!, home))
+// ------------------------------------- what a shell command writes, as far as its text shows
+//
+// The guard asks where a command writes, not which words it contains. So a protected name in a
+// message, a search or a source file is no write, and a write is judged by the file it reaches.
+
+type Word = { text: string; isDynamic: boolean }
+type ShellCommand = { words: Word[]; redirects: { word: Word; isAppend: boolean }[]; substitutions: string[] }
+
+/** What a command writes: `paths` as resolved, `hidden` where a variable decides, `isOpaque` if its text can't show its targets. */
+export type ShellWrites = { paths: { path: string; isAppend: boolean }[]; hidden: string[]; isOpaque: boolean }
+
+const closing = (text: string, open: number): number => {
+  let depth = 0
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === '(') depth += 1
+    else if (text[i] === ')' && --depth === 0) return i
   }
-  const named = words.filter(isManuscriptPath)
-  return named.length === 0 ? null : [...new Set(named.flatMap(word => bases.map(base => shellPath(word, base, home))))]
+  return text.length
 }
+
+/** The commands in a piece of shell text. Quotes hold words together; a heredoc's body and comments are no commands. */
+const parseShell = (text: string): ShellCommand[] => {
+  const commands: ShellCommand[] = []
+  let command: ShellCommand = { words: [], redirects: [], substitutions: [] }
+  let word = ''
+  let isWord = false
+  let isDynamic = false
+  let next: { kind: 'redirect'; isAppend: boolean } | { kind: 'skip' } | { kind: 'heredoc' } | null = null
+  const heredocs: string[] = []
+  const flush = () => {
+    if (!isWord) return
+    const done = { text: word, isDynamic }
+    if (next?.kind === 'redirect') command.redirects.push({ word: done, isAppend: next.isAppend })
+    else if (next?.kind === 'heredoc') heredocs.push(word)
+    else if (next === null) command.words.push(done)
+    next = null
+    word = ''
+    isWord = false
+    isDynamic = false
+  }
+  const endCommand = () => {
+    flush()
+    if (command.words.length + command.redirects.length + command.substitutions.length > 0) commands.push(command)
+    command = { words: [], redirects: [], substitutions: [] }
+  }
+  // `$(…)` or a backtick at i: its commands count too, its value decides this word
+  const substitution = (i: number): number => {
+    const end = text[i] === '`' ? (text.indexOf('`', i + 1) + 1 || text.length) - 1 : closing(text, i + 1)
+    command.substitutions.push(text.slice(i + (text[i] === '`' ? 1 : 2), end))
+    word += '$()'
+    isWord = true
+    isDynamic = true
+    return end
+  }
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!
+    if (c === '\\') {
+      if (text[i + 1] !== '\n') {
+        word += text[i + 1] ?? ''
+        isWord = true
+      }
+      i += 1
+    } else if (c === "'") {
+      const end = text.indexOf("'", i + 1)
+      word += text.slice(i + 1, end === -1 ? text.length : end)
+      isWord = true
+      i = end === -1 ? text.length : end
+    } else if (c === '"') {
+      isWord = true
+      for (i += 1; i < text.length && text[i] !== '"'; i++) {
+        if (text[i] === '\\') word += text[(i += 1)] ?? ''
+        else if (text[i] === '`' || (text[i] === '$' && text[i + 1] === '(')) i = substitution(i)
+        else {
+          if (text[i] === '$') isDynamic = true
+          word += text[i]
+        }
+      }
+    } else if (c === '`' || (c === '$' && text[i + 1] === '(')) {
+      i = substitution(i)
+    } else if (c === '#' && !isWord) {
+      while (i + 1 < text.length && text[i + 1] !== '\n') i += 1
+    } else if (c === '>' || (c === '&' && text[i + 1] === '>')) {
+      if (isWord && /^\d+$/.test(word)) {
+        word = ''
+        isWord = false
+      }
+      flush()
+      if (c === '&') i += 1
+      const isAppend = text[i + 1] === '>'
+      if (isAppend || text[i + 1] === '|') i += 1
+      if (text[i + 1] === '&') {
+        i += 1
+        next = { kind: 'skip' } // a file descriptor, as in 2>&1
+      } else next = { kind: 'redirect', isAppend }
+    } else if (c === '<') {
+      if (isWord && /^\d+$/.test(word)) {
+        word = ''
+        isWord = false
+      }
+      flush()
+      if (text.startsWith('<<<', i)) {
+        i += 2
+        next = { kind: 'skip' }
+      } else if (text[i + 1] === '<') {
+        i += text[i + 2] === '-' ? 2 : 1
+        next = { kind: 'heredoc' }
+      } else if (text[i + 1] !== '(') next = { kind: 'skip' }
+    } else if (c === '\n') {
+      endCommand()
+      for (const delimiter of heredocs.splice(0)) {
+        while (i < text.length) {
+          const end = text.indexOf('\n', i + 1) === -1 ? text.length : text.indexOf('\n', i + 1)
+          const line = text.slice(i + 1, end).trim()
+          i = end
+          if (line === delimiter) break
+        }
+      }
+    } else if (c === ';' || c === '|' || c === '&' || c === '(' || c === ')') {
+      endCommand()
+    } else if (c === ' ' || c === '\t') {
+      flush()
+    } else {
+      if (c === '$') isDynamic = true
+      word += c
+      isWord = true
+    }
+  }
+  endCommand()
+  return commands
+}
+
+const WRITES_LAST_WORD = new Set(['cp', 'rsync', 'install', 'scp'])
+const WRITES_EVERY_WORD = new Set(['rm', 'rmdir', 'unlink', 'shred', 'touch', 'truncate', 'mkdir', 'chmod', 'chown', 'chgrp', 'patch', 'mv', 'ln', 'tee', 'vi', 'vim', 'nvim', 'nano', 'emacs', 'ed', 'ex'])
+const GIT_WRITES = new Set(['checkout', 'restore', 'reset', 'apply', 'stash', 'mv', 'rm', 'clean'])
+const NEVER_AN_OUTPUT_FLAG = new Set(['grep', 'egrep', 'fgrep', 'rg', 'ls', 'ps', 'cat', 'wc', 'head', 'tail'])
+const LEADING_WORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', 'time', 'sudo', 'command', 'env', 'nohup', 'exec', 'npx', '{', '}'])
+const INTERPRETERS = /^(python[\d.]*|node|ruby|perl|php)$/
+const SHELLS = /^(sh|bash|zsh|dash)$/
+const WRITING_CODE = /\bopen\([^,)]*,\s*(mode\s*=\s*)?['"][^'"]*[wax+]|\.open\(\s*['"][^'"]*[wax+]|write_text|write_bytes|writeFile|appendFile|os\.(remove|unlink|rename|replace|rmdir)|shutil\.|unlinkSync|renameSync/
+
+const isWriteCommand = (name: string): boolean => WRITES_LAST_WORD.has(name) || WRITES_EVERY_WORD.has(name) || SHELLS.test(name) || name === 'sed' || name === 'perl' || name === 'dd'
+
+/** What this shell text writes, for a session in `cwd`. Commands in `$(…)`, `sh -c` and after a `cd` are followed. */
+export const shellWrites = (text: string, cwd: string, home: string): ShellWrites => {
+  const out: ShellWrites = { paths: [], hidden: [], isOpaque: false }
+  const follow = (shell: string, from: string | null) => {
+    let base = from
+    for (const command of parseShell(shell)) {
+      const record = (word: Word, isAppend = false, inFolder = base) => {
+        if (word.isDynamic || inFolder === null) out.hidden.push(word.text)
+        else out.paths.push({ path: shellPath(word.text, inFolder, home), isAppend })
+      }
+      for (const inner of command.substitutions) follow(inner, base)
+      for (const { word, isAppend } of command.redirects) record(word, isAppend)
+      const words = command.words.slice()
+      while (words[0] !== undefined && (LEADING_WORDS.has(words[0].text) || /^\w+=/.test(words[0].text))) words.shift()
+      if (words[0] === undefined) continue
+      const name = words[0].text.split('/').pop()!
+      const args = words.slice(1)
+      const plain = args.filter(a => !a.text.startsWith('-') && a.text !== '')
+      const flagged = (test: RegExp) => args.some(a => test.test(a.text))
+      // the files of `sed -i` and `perl -i`: without the script, whether after -e or as the first word
+      const editedFiles = () => {
+        const script = args.find((a, i) => /^-[a-zA-Z]*e$/.test(args[i - 1]?.text ?? ''))
+        if (script !== undefined) return plain.filter(a => a !== script)
+        return name === 'sed' ? plain.slice(1) : plain
+      }
+      if (name === 'cd') {
+        const target = plain[0]
+        if (target !== undefined) base = target.isDynamic || base === null ? null : shellPath(target.text, base, home)
+      } else if (SHELLS.test(name) || name === 'eval') {
+        const at = args.findIndex(a => a.text === '-c')
+        const script = name === 'eval' ? args.map(a => a.text).join(' ') : args[at + 1]?.text
+        if (script !== undefined && (name === 'eval' || at !== -1)) follow(script, base)
+      } else if (INTERPRETERS.test(name) && flagged(/^-[a-zA-Z]*[ce]$/)) {
+        if (args.some(a => WRITING_CODE.test(a.text))) out.isOpaque = true
+        if (name === 'perl' && flagged(/^-[a-zA-Z]*i/)) editedFiles().forEach(a => record(a))
+      } else if (name === 'find') {
+        const at = args.findIndex(a => /^-(exec|execdir|ok)$/.test(a.text))
+        if (flagged(/^-delete$/) || (at !== -1 && isWriteCommand(args[at + 1]?.text.split('/').pop() ?? ''))) out.isOpaque = true
+      } else if (name === 'xargs') {
+        if (isWriteCommand(plain[0]?.text.split('/').pop() ?? '')) out.isOpaque = true
+      } else if (name === 'git') {
+        const at = args.findIndex(a => a.text === '-C')
+        const folder = at === -1 ? base : args[at + 1]?.isDynamic || base === null ? null : shellPath(args[at + 1]?.text ?? '.', base, home)
+        const rest = at === -1 ? plain : plain.filter(a => a !== args[at + 1])
+        if (GIT_WRITES.has(rest[0]?.text ?? '')) rest.slice(1).forEach(a => record(a, false, folder))
+      } else if (name === 'dd') {
+        for (const a of args) if (a.text.startsWith('of=')) record({ text: a.text.slice(3), isDynamic: a.isDynamic })
+      } else if (name === 'sed') {
+        if (flagged(/^(-[a-zA-Z]*i|--in-place)/)) editedFiles().forEach(a => record(a))
+      } else if (name === 'ln') {
+        // a link's source is read from where the link will be, so a link into a protected file counts as a write to it
+        const link = plain[plain.length - 1]
+        if (link !== undefined) {
+          record(link)
+          const beside = link.isDynamic || base === null ? null : shellPath(link.text, base, home).replace(/\/[^/]*$/, '')
+          plain.slice(0, -1).forEach(a => {
+            record(a)
+            record(a, false, beside)
+          })
+        }
+      } else if (WRITES_LAST_WORD.has(name)) {
+        if (plain.length > 0) record(plain[plain.length - 1]!)
+      } else if (WRITES_EVERY_WORD.has(name)) {
+        const isAppend = name === 'tee' && flagged(/^(-a|--append)$/)
+        plain.forEach(a => record(a, isAppend))
+      } else if (flagged(/^--(write|fix|in-place)$/)) {
+        plain.forEach(a => record(a))
+      } else {
+        for (const [i, a] of args.entries()) {
+          const after = args[i + 1]
+          const takesNext = (a.text === '-o' && !NEVER_AN_OUTPUT_FLAG.has(name)) || a.text === '--output' || (a.text === '-O' && name === 'wget')
+          if (takesNext && after !== undefined) record(after)
+          const inline = a.text.match(/^--?output(?:-directory)?=(.+)$/)
+          if (inline !== null) record({ text: inline[1]!, isDynamic: a.isDynamic })
+          if (a.text === '-C' && name === 'tar' && after !== undefined) record(after)
+        }
+      }
+    }
+  }
+  follow(text, cwd)
+  return out
+}
+
+/** Does this text use one of these names as a path? */
+export const mentionsPath = (text: string, names: readonly string[]): boolean =>
+  names.some(name => new RegExp(`(^|[\\s'"=(/])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/|[\\s'")]|$)`, 'i').test(text))
 
 export const GUARD_MESSAGE =
   'CoWriting: the manuscript/ folder is written by its human author only (DFG good scientific practice: ' +
@@ -462,23 +630,16 @@ export const LOG_GUARD_MESSAGE =
   'CoWriting: the AI log (ai-log/) is append-only: it is the record the author signs a disclosure from. ' +
   'The plugin writes it; annotations go through ailog.py annotate. Nothing that is already in it may be changed or removed.'
 
-/** Does this path name the paper's log folder or lie in it? A path the shell has yet to expand counts if it says `ai-log`. */
+/** Does this path name the log folder of the paper at `root`, or lie in it? */
 export const isLogPath = (path: string, root: string): boolean => {
   const segs = segmentsOf(path).map(s => s.toLowerCase())
-  if (!isRooted(path)) return segs.includes(LOG_FOLDER)
   const base = [...segmentsOf(root).map(s => s.toLowerCase()), LOG_FOLDER]
   return segs.length >= base.length && base.every((s, i) => s === segs[i])
 }
 
-// `>>` and its target; `(?<!>)` so the second `>` of a pair doesn't start a match of its own
-const APPEND = /(?<!>)>>\s*['"]?([^\s'"&|;)]+)['"]?/g
-
-/**
- * Would this shell command do anything to the log but append to it, as far as its text shows?
- * An append (`>> ai-log/x.jsonl`) passes. `ailog.py annotate` names no such folder, so it passes too.
- */
-export const bashRewritesLog = (command: string, isLog: (path: string) => boolean, names: readonly string[]): boolean =>
-  bashWritesTo(command.replace(APPEND, (whole, target: string) => (isLog(target) ? '' : whole)), isLog, names)
+/** New files in the log other than this month's: the log grows by its month file and nothing else. */
+export const strayLogFiles = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>, month: string): string[] =>
+  Object.keys(after).filter(f => before[f] === undefined && f !== month).sort()
 
 /** The log files whose earlier content did not survive: changed or removed. A file that only grew, or is new, is fine. */
 export const rewrittenLogFiles = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>

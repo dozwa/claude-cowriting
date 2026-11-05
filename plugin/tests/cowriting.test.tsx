@@ -4,24 +4,15 @@ import {
   ACHIEVEMENTS,
   EMPTY_STATS,
   NEW_GAME,
-  absolutePath,
   advanceGame,
-  authorFileOf,
   autosaveMessage,
-  bashTouchesManuscript,
-  bashWritesTo,
   briefFor,
   categoryFor,
-  changedFiles,
   changedParagraphs,
   changedPaths,
   computeStats,
   countWords,
-  isManuscriptPath,
-  liesIn,
   limitCrossed,
-  manuscriptParents,
-  manuscriptPathsIn,
   overrelianceNudge,
   parseBriefs,
   parseHints,
@@ -29,7 +20,6 @@ import {
   setBrief,
   appendBrief,
   briefLines,
-  shellPath,
   toUsage,
   usageParts,
   watchExcerpt,
@@ -44,8 +34,8 @@ const ROOT = '/w'
 const registered: { name: string; prompt: string; tools: string[] }[] = []
 
 // An in-memory workspace answering the plugin's $.fs and $.session calls.
-const workspace = (on: any, files: Map<string, string>) => {
-  on('session.cwd', () => ({ value: ROOT }))
+const workspace = (on: any, files: Map<string, string>, cwdOf: () => string = () => ROOT) => {
+  on('session.cwd', () => ({ value: cwdOf() }))
   on('session.id', () => ({ value: 'session-1' }))
   on('fs.exists', (_: unknown, e: { path: string }) => ({
     value: files.has(e.path) || [...files.keys()].some(k => k.startsWith(`${e.path}/`)),
@@ -104,95 +94,6 @@ test('every sprite is 12x12 and uses only known colours', async () => {
     expect(raster.cells.length).toBe(Math.ceil((12 * 6 * 12) / 3) * 4)
     expect(svgSource(p).startsWith('<svg')).toBe(true)
   }
-})
-
-test('the guard spots writes into manuscript/ and lets reads through', async () => {
-  expect(isManuscriptPath('/w/manuscript/main.tex')).toBe(true)
-  expect(isManuscriptPath('/w/projects/a/manuscript/ch1/intro.md')).toBe(true)
-  expect(isManuscriptPath('/w/notes/ai/manuscript-notes.md')).toBe(false)
-  expect(isManuscriptPath('Manuscript/main.md')).toBe(true) // macOS ignores case
-  expect(isManuscriptPath('notes/../manuscript/main.md')).toBe(true)
-  expect(isManuscriptPath('manuscript/../notes/ai/x.md')).toBe(false)
-  expect(isManuscriptPath('manus*/main.md')).toBe(true)
-  expect(isManuscriptPath('manuscripts/main.md')).toBe(false)
-
-  const denied = [
-    'echo hi > manuscript/main.md',
-    'cat notes.md >> manuscript/main.md',
-    'cat << EOF > manuscript/main.md\nhello\nEOF',
-    "sed -i '' 's/a/b/' manuscript/main.tex",
-    'git checkout -- manuscript/main.tex',
-    'cp a.md manuscript/',
-    'cd manuscript && echo x > main.md',
-    'echo x > Manuscript/main.md',
-    'echo x > manus*/main.md',
-    'npx prettier --write manuscript/main.md',
-    'pandoc notes.md -o manuscript/main.md',
-    'sort -o manuscript/main.md manuscript/main.md',
-    'vim -c "wq" manuscript/main.md',
-    'python3 -c "open(\'manuscript/main.md\',\'w\').write(\'x\')"',
-  ]
-  for (const command of denied) expect(bashTouchesManuscript(command), command).toBe(true)
-  const allowed = [
-    'cat manuscript/main.tex',
-    'cat manuscript/main.md 2>/dev/null',
-    'wc -w manuscript/*.md > /dev/null',
-    'grep -n cite manuscript/*.tex | head -5',
-    'git log --oneline -- manuscript',
-    'python3 tools/style_profile.py literature/style-models manuscript',
-    'echo hi > notes/ai/x.md',
-    'echo "see manuscript/" > notes/ai/todo.md',
-    'git commit -F msg.txt',
-    // the folder's name inside a search pattern or a longer word is not a path
-    'grep -rn "manuscript\\|chmod\\|read-only" plugin/skills docs 2>/dev/null | head -30',
-    'sed -n 540,600p plugin/hooks/register.tsx; grep -rln "settings" plugin/skills; echo manuscripts',
-  ]
-  for (const command of allowed) expect(bashTouchesManuscript(command), command).toBe(false)
-})
-
-test('inside a paper, everything but Claude\'s own places is the author\'s', async () => {
-  const root = '/w/projects/alpha'
-  expect(authorFileOf(`${root}/literature/references.bib`, root)).toBe('literature/references.bib')
-  expect(authorFileOf(`${root}/CLAUDE.md`, root)).toBe('CLAUDE.md')
-  expect(authorFileOf(`${root}/.claude/settings.json`, root)).toBe('.claude/settings.json')
-  expect(authorFileOf(`${root}/notes/own/ideas.md`, root)).toBe('notes/own/ideas.md')
-  expect(authorFileOf(`${root}/notes/ai/../../party.md`, root)).toBe('party.md')
-  expect(authorFileOf(`/W/Projects/Alpha/Manuscript/main.tex`, root)).toBe('Manuscript/main.tex') // macOS ignores case
-  expect(authorFileOf(`${root}/*/x.md`, root)).toBe('*/x.md') // a glob is never one of Claude's places
-  for (const ok of ['notes/ai/x.md', 'ai-log/2026-10.jsonl', 'disclosure/ai-register.en.md', 'scope.md', '.cowriting/game.json', 'build/main.pdf']) {
-    expect(authorFileOf(`${root}/${ok}`, root), ok).toBeNull()
-  }
-  expect(authorFileOf('/w/projects/beta/CLAUDE.md', root)).toBeNull() // another paper is not this one's business
-  expect(authorFileOf(root, root)).toBeNull()
-  expect(absolutePath('/w', 'literature/x.bib')).toBe('/w/literature/x.bib')
-  expect(absolutePath('/w', '/abs/x')).toBe('/abs/x')
-  expect(absolutePath('/w', '$HOME/x')).toBe('$HOME/x')
-
-  const isAuthors = (t: string) => authorFileOf(absolutePath('/w', t), '/w') !== null
-  const names = ['manuscript', 'literature', 'CLAUDE.md', 'party.md', 'paper.json']
-  const denied = [
-    'echo x > literature/references.bib',
-    'cat a >> CLAUDE.md',
-    'cp notes/ai/x.md party.md',
-    'cd literature && pandoc a.md -o b.md',
-    "sed -i '' 's/a/b/' paper.json",
-    'python3 x.py > /w/literature/out.bib',
-    'cp literature/a.pdf /tmp/', // the pattern cannot tell a source from a target: read the file instead
-  ]
-  for (const command of denied) expect(bashWritesTo(command, isAuthors, names), command).toBe(true)
-  const allowed = [
-    'echo x > notes/ai/x.md',
-    'pdftotext literature/a.pdf -',
-    'python3 tools/verify_refs.py literature/references.bib',
-    'git log -- literature',
-    'echo x > scope.md',
-    'latexmk -outdir=build manuscript/main.tex > /dev/null',
-  ]
-  for (const command of allowed) expect(bashWritesTo(command, isAuthors, names), command).toBe(false)
-  // what the text cannot show is left to the comparison after the call
-  expect(changedFiles({ 'manuscript/main.tex': '1:10' }, { 'manuscript/main.tex': '2:12' })).toEqual(['manuscript/main.tex'])
-  expect(changedFiles({ 'manuscript/main.tex': '1:10' }, { 'manuscript/main.tex': '1:10', 'manuscript/new.tex': '3:1' })).toEqual(['manuscript/new.tex'])
-  expect(changedFiles({ 'manuscript/main.tex': '1:10' }, { 'manuscript/main.tex': '1:10' })).toEqual([])
 })
 
 test('words are counted without LaTeX and Markdown syntax', async () => {
@@ -278,43 +179,6 @@ test('the plugin refuses edits to the manuscript and allows notes', async ($, on
   expect(elsewhere.deny).toBeUndefined()
 })
 
-test('whose manuscript folder a path names can be told from the path', async () => {
-  expect(manuscriptParents('/p/manuscript/main.md')).toEqual(['/p'])
-  expect(manuscriptParents('/p/Manuscript/main.md')).toEqual(['/p'])
-  expect(manuscriptParents('/p/notes/../manuscript/main.md')).toEqual(['/p'])
-  expect(manuscriptParents('/manuscript/x.md')).toEqual(['/'])
-  expect(manuscriptParents('/a/manuscript/b/manuscript/x.md')).toEqual(['/a', '/a/manuscript/b'])
-  expect(manuscriptParents('C:\\p\\manuscript\\main.md')).toEqual(['C:/p'])
-  expect(manuscriptParents('/p/manuscript/*.md')).toEqual(['/p'])
-  // these could name any paper
-  expect(manuscriptParents('$DIR/manuscript/main.md')).toBeNull()
-  expect(manuscriptParents('/p/$DIR/manuscript/main.md')).toBeNull()
-  expect(manuscriptParents('/p/*/main.md')).toBeNull()
-  expect(manuscriptParents('~other/manuscript/main.md')).toBeNull()
-
-  expect(shellPath('~/p/manuscript/x', '/w', '/home/u')).toBe('/home/u/p/manuscript/x')
-  expect(shellPath('~/p/manuscript/x', '/w', '')).toBe('~/p/manuscript/x')
-  expect(shellPath('manuscript/x', '/w', '')).toBe('/w/manuscript/x')
-  expect(shellPath('$D/manuscript/x', '/w', '')).toBe('$D/manuscript/x')
-  expect(liesIn('/p/notes/../manuscript/x', '/P')).toBe(true)
-  expect(liesIn('/pp/manuscript/x', '/p')).toBe(false)
-
-  expect(manuscriptPathsIn('echo x > manuscript/m.md', '/w', '')).toEqual(['/w/manuscript/m.md'])
-  expect(manuscriptPathsIn('cd /p && echo x > manuscript/m.md', '/w', '')).toEqual(['/w/manuscript/m.md', '/p/manuscript/m.md'])
-  expect(manuscriptPathsIn('cd /p; cd sub; cp a manuscript/', '/w', '')).toContain('/p/sub/manuscript/')
-  // quotes hold a word together, whatever is in it
-  expect(manuscriptPathsIn('echo x > "/my dir/manuscript/m.md"', '/w', '')).toEqual(['/my dir/manuscript/m.md'])
-  expect(manuscriptPathsIn('echo x > /my\\ dir/manuscript/m.md', '/w', '')).toEqual(['/my dir/manuscript/m.md'])
-  expect(manuscriptPathsIn('echo x > "$D"/manuscript/m.md', '/w', '')).toEqual(['$D/manuscript/m.md'])
-  expect(manuscriptPathsIn('cd "/my dir" && echo x > manuscript/m.md', '/w', '')).toContain('/my dir/manuscript/m.md')
-  expect(manuscriptPathsIn('pandoc n.md --output=manuscript/m.md', '/w', '')).toEqual(['/w/manuscript/m.md'])
-  // nothing to go on
-  expect(manuscriptPathsIn('python3 -c "open(\'manuscript/m.md\',\'w\')"', '/w', '')).toBeNull()
-  expect(manuscriptPathsIn('echo x > $(pwd)/manuscript/m.md', '/w', '')).toBeNull()
-  expect(manuscriptPathsIn('echo x > `pwd`/manuscript/m.md', '/w', '')).toBeNull()
-  expect(manuscriptPathsIn('rsync a host:manuscript/m.md', '/w', '')).toBeNull()
-})
-
 test('a manuscript folder in another project is left alone', async ($, on) => {
   workspace(on, new Map([[`${ROOT}/manuscript/old.md`, 'x']]))
   on('tool.call', () => ({ result: {} }))
@@ -334,6 +198,105 @@ test('a manuscript folder in another project is left alone', async ($, on) => {
     const result = await $.tool.call(input as never)
     expect(result.deny).toBeUndefined()
   }
+})
+
+test('a file is protected by the paper it lies in, wherever the session is', async ($, on) => {
+  const paper = { name: 'p', format: 'markdown', language: 'en' }
+  const files = new Map([
+    ['/p/paper.json', JSON.stringify(paper)],
+    ['/p/manuscript/main.md', 'x'],
+    ['/p/CLAUDE.md', 'x'],
+    ['/p/notes/ai/x.md', 'x'],
+    ['/other/CLAUDE.md', 'x'],
+    ['/other/manuscript/a.md', 'x'],
+    ['/w/.active-project', 'a'],
+    ['/w/CLAUDE.md', 'x'],
+    ['/w/projects/a/paper.json', JSON.stringify(paper)],
+    ['/w/projects/a/manuscript/main.md', 'x'],
+    ['/w/projects/a/party.md', 'x'],
+    ['/w/projects/a/ai-log/2026-11.jsonl', '{}\n'],
+    ['/w/projects/b/paper.json', JSON.stringify(paper)],
+    ['/w/projects/b/manuscript/main.md', 'x'],
+    ['/w/projects/b/party.md', 'x'],
+  ])
+  let cwd = '/p'
+  workspace(on, files, () => cwd)
+  on('fs.stat', (_: unknown, e: { path: string }) => {
+    const isDir = [...files.keys()].some(k => k.startsWith(`${e.path}/`))
+    if (!isDir && !files.has(e.path)) throw new Error(`ENOENT ${e.path}`)
+    return { value: { kind: isDir ? 'dir' : 'file', size: 0, mtimeMs: 0, isLink: false } }
+  })
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('tool.call', () => ({ result: {} }))
+  await $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+  const expectCalls = async (from: string, refused: boolean, calls: readonly (string | { file: string })[]) => {
+    cwd = from
+    for (const call of calls) {
+      const input = typeof call === 'string' ? { tool: 'Bash', command: call } : { tool: 'Write', file_path: call.file }
+      const answer = await $.tool.call(input as never)
+      expect(Boolean(answer.deny), `from ${from}: ${typeof call === 'string' ? call : call.file}`).toBe(refused)
+    }
+  }
+
+  // inside a paper, another project's CLAUDE.md and manuscript folder are that project's
+  await expectCalls('/p', false, [
+    { file: '/other/CLAUDE.md' },
+    'echo x > /other/CLAUDE.md',
+    'rm /other/CLAUDE.md',
+    'cp notes/ai/x.md /other/CLAUDE.md',
+    "sed -i '' s/a/b/ /other/CLAUDE.md",
+    'cd /other && echo x > CLAUDE.md',
+    'cd /other && rm CLAUDE.md',
+    "perl -pi -e 's/a/b/' /other/CLAUDE.md",
+    'echo x > /other/manuscript/a.md',
+    'git -C /other commit -m "update CLAUDE.md" && rm -f /tmp/x',
+  ])
+  await expectCalls('/p', true, [{ file: 'CLAUDE.md' }, 'rm CLAUDE.md', 'cd manuscript && rm main.md'])
+
+  // working in another project, its files are free and the paper's stay guarded
+  await expectCalls('/other', false, [{ file: 'CLAUDE.md' }, 'rm CLAUDE.md', 'cd /tmp && cp a CLAUDE.md', 'rm -f manuscript/*.bak'])
+  await expectCalls('/other', true, ['cd /p && rm CLAUDE.md', 'cd /p && echo x > CLAUDE.md', 'rm /p/CLAUDE.md', { file: '/p/manuscript/main.md' }])
+
+  // several papers in one workspace: each paper's files, and the workspace's own are not a paper's
+  await expectCalls('/w', true, [
+    { file: 'projects/a/party.md' },
+    'rm projects/a/party.md',
+    'cp x projects/a/paper.json',
+    "sed -i '' s/a/b/ projects/a/party.md",
+    'rm projects/a/ai-log/2026-11.jsonl',
+    'rm projects/a/manuscript/main.md',
+    { file: 'projects/b/party.md' },
+    { file: 'projects/b/manuscript/main.md' },
+  ])
+  await expectCalls('/w', false, [{ file: 'CLAUDE.md' }, 'echo x > CLAUDE.md', 'echo x >> projects/a/ai-log/2026-11.jsonl'])
+
+  // a session started in a subfolder of a paper is still in that paper
+  await expectCalls('/p/notes/ai', true, [{ file: '../../manuscript/main.md' }, { file: '../../CLAUDE.md' }, 'rm ../../CLAUDE.md', 'echo x > ../../CLAUDE.md'])
+  await expectCalls('/p/notes/ai', false, [{ file: 'x.md' }, 'echo x > y.md'])
+})
+
+test('if the guard itself fails, a paper is refused over it and another project is not', async ($, on) => {
+  class BrokenDisk extends Map<string, string> {
+    override has(path: string) {
+      if (path === '/broken/manuscript') throw new Error('disk gone') // the check on what lies in /broken fails
+      return super.has(path)
+    }
+  }
+  let cwd = '/elsewhere'
+  const files = new BrokenDisk([
+    ['/broken/paper.json', '{}'],
+    ['/elsewhere/src/a.ts', 'x'],
+    ['/p/paper.json', '{}'],
+    ['/p/manuscript/main.md', 'x'],
+  ])
+  workspace(on, files, () => cwd)
+  on('tool.call', () => ({ result: {} }))
+  await $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+
+  expect((await $.tool.call({ tool: 'Write', file_path: '/broken/a.md' } as never)).deny).toBeUndefined()
+  cwd = '/p'
+  expect((await $.tool.call({ tool: 'Write', file_path: '/broken/a.md' } as never)).deny).toBeTruthy()
 })
 
 test('working in another project, the guard stays out of the way, and the plugin leaves no trace', async ($, on) => {
@@ -562,18 +525,6 @@ test('a manuscript change during a tool call is logged as a guard event and show
 // These tests say what happens to a tool call and to the files, not how the guard decides. The
 // engine below only runs what the plugin lets through; each attack in dev/attacks/ has its row here.
 
-/** A behaviour we want but don't have yet, tied to its finding. It passes while broken and fails once fixed, so the marker goes. */
-const stillBroken = async (finding: string, behaviour: () => Promise<void> | void) => {
-  let holds = false
-  try {
-    await behaviour()
-    holds = true
-  } catch {
-    // as expected, for now
-  }
-  if (holds) throw new Error(`${finding} seems fixed: drop stillBroken here, and settle the finding in the tracker`)
-}
-
 /** A session on a paper, with an engine that runs `effects` for the calls the plugin lets through. */
 const guardedSession = async ($: any, on: any, effects: Record<string, (files: Map<string, string>) => void> = {}) => {
   const files = paperFiles()
@@ -588,6 +539,10 @@ const guardedSession = async ($: any, on: any, effects: Record<string, (files: M
     value: { kind: 'file', size: files.get(e.path)?.length ?? 0, mtimeMs: files.get(e.path)?.length ?? 0, isLink: false },
   }))
   const ran: unknown[] = []
+  on('process.run', (_: unknown, e: { argv: readonly string[] }) => {
+    if (e.argv[0] === 'rm') files.delete(String(e.argv[e.argv.length - 1]))
+    return { value: { exitCode: 0, stdout: '', stderr: '' } as never }
+  })
   on('tool.call', (_: unknown, e: { tool: string; command?: string; file_path?: string }) => {
     ran.push(e.command ?? e.file_path)
     effects[e.command ?? '']?.(files)
@@ -623,6 +578,33 @@ const REFUSED_ATTEMPTS: readonly (Record<string, unknown> & { tool: string })[] 
   { tool: 'Bash', command: 'cd manuscript && echo x > main.tex' },
   { tool: 'Bash', command: 'echo x > literature/references.bib' },
   { tool: 'Bash', command: 'rm paper.json' },
+  { tool: 'Bash', command: 'cat << EOF > manuscript/main.tex\nhello\nEOF' },
+  { tool: 'Bash', command: 'git checkout -- manuscript/main.tex' },
+  { tool: 'Bash', command: 'echo x > manus*/main.tex' },
+  { tool: 'Bash', command: 'npx prettier --write manuscript/main.tex' },
+  { tool: 'Bash', command: 'pandoc notes/ai/a.md -o manuscript/main.tex' },
+  { tool: 'Bash', command: 'sort -o manuscript/main.tex manuscript/main.tex' },
+  { tool: 'Bash', command: 'vim -c "wq" manuscript/main.tex' },
+  { tool: 'Bash', command: 'cat a.md | tee manuscript/main.tex' },
+  { tool: 'Bash', command: 'tee -a manuscript/main.tex < a.md' },
+  { tool: 'Bash', command: 'cd literature && pandoc a.md -o b.md' },
+  { tool: 'Bash', command: 'cat a >> CLAUDE.md' },
+  { tool: 'Bash', command: 'cp notes/ai/x.md party.md' },
+  { tool: 'Bash', command: "sed -i '' 's/a/b/' paper.json" },
+  { tool: 'Bash', command: "sed -i -e 's/a/b/' party.md" },
+  { tool: 'Bash', command: "perl -pi -e 's/a/b/' party.md" },
+  { tool: 'Bash', command: `python3 -c "open('manuscript/main.tex', mode='a').write('x')"` },
+  { tool: 'Bash', command: 'python3 x.py > /w/literature/out.bib' },
+  { tool: 'Bash', command: 'sh -c "echo x > manuscript/main.tex"' },
+  { tool: 'Bash', command: 'echo $(rm manuscript/main.tex)' },
+  { tool: 'Bash', command: 'rm -rf .' },
+  { tool: 'Bash', command: 'for f in manuscript/*.tex; do echo x > "$f"; done' },
+  { tool: 'Bash', command: 'echo x > $DIR/manuscript/main.tex' },
+  { tool: 'Bash', command: 'cp a.md $(pwd)/manuscript/main.tex' },
+  { tool: 'Write', file_path: '$DIR/manuscript/main.tex' },
+  { tool: 'Write', file_path: 'notes/ai/../../party.md' },
+  { tool: 'Write', file_path: 'notes/own/ideas.md' },
+  { tool: 'Write', file_path: 'notes/ai/manuscript/x.md' },
   // g2: seen in the real run
   { tool: 'Bash', command: 'ln -s ../../manuscript/main.tex notes/ai/link.md' },
   { tool: 'Bash', command: 'mv notes/ai/moved manuscript' },
@@ -655,7 +637,7 @@ test('a write to what is not Claude\'s never runs, and the attempt is on the rec
     expect(refusals().length, label).toBe(i + 1)
     const last = refusals().at(-1)
     expect(last?.type === 'guard' && last.tool, label).toBe(attempt.tool)
-    expect(last?.type === 'guard' && last.input, label).toBe(String(attempt.command ?? attempt.file_path))
+    expect(last?.type === 'guard' && last.input, label).toBe(String(attempt.command ?? attempt.file_path).replace(/\s+/g, ' ').replaceAll(`${ROOT}/`, ''))
   }
   for (const [path, text] of before) expect(files.get(path), path).toBe(text)
   expect(computeStats(entries(), new Date()).guardEvents).toBe(0)
@@ -665,6 +647,10 @@ test('reading, and writing in Claude\'s own places, just works and leaves no rec
   const { ran, refusals } = await guardedSession($, on)
   const harmless: (Record<string, unknown> & { tool: string })[] = [
     { tool: 'Write', file_path: 'notes/ai/allowed.md' },
+    { tool: 'Write', file_path: 'disclosure/ai-register.en.md' },
+    { tool: 'Write', file_path: 'scope.md' },
+    { tool: 'Write', file_path: '.cowriting/game.json' },
+    { tool: 'Write', file_path: 'build/main.pdf' },
     { tool: 'Write', file_path: 'notes/ai/manuscript-notes.md' },
     { tool: 'Bash', command: 'cat manuscript/main.tex' },
     { tool: 'Bash', command: 'wc -w manuscript/main.tex' },
@@ -680,6 +666,27 @@ test('reading, and writing in Claude\'s own places, just works and leaves no rec
     { tool: 'Bash', command: 'wc -w manuscript/*.tex > notes/ai/e.md' },
     { tool: 'Bash', command: 'for f in manuscript/*.tex; do wc -w "$f"; done > notes/ai/f.md' },
     { tool: 'Bash', command: 'mkdir -p build && echo ok > build/log.txt' },
+    // finding 9: only reading from what is protected
+    { tool: 'Bash', command: 'cp manuscript/main.tex notes/ai/copy.md' },
+    { tool: 'Bash', command: 'pandoc manuscript/main.tex -o notes/ai/out.html' },
+    { tool: 'Bash', command: `python3 -c "print(open('manuscript/main.tex').read()[:20])"` },
+    { tool: 'Bash', command: 'cp literature/a.pdf /tmp/' },
+    { tool: 'Bash', command: 'cat manuscript/main.tex 2>/dev/null' },
+    { tool: 'Bash', command: 'wc -w manuscript/*.tex > /dev/null' },
+    { tool: 'Bash', command: 'grep -n cite manuscript/*.tex | head -5' },
+    { tool: 'Bash', command: 'git log --oneline -- manuscript' },
+    { tool: 'Bash', command: 'python3 tools/style_profile.py literature/style-models manuscript' },
+    { tool: 'Bash', command: 'echo "see manuscript/" > notes/ai/todo.md' },
+    { tool: 'Bash', command: 'grep -rn "manuscript\\|chmod\\|read-only" plugin/skills docs 2>/dev/null | head -30' },
+    { tool: 'Bash', command: 'latexmk -outdir=build manuscript/main.tex > /dev/null' },
+    { tool: 'Bash', command: 'pdftotext literature/a.pdf -' },
+    { tool: 'Bash', command: 'python3 tools/verify_refs.py literature/references.bib' },
+    { tool: 'Bash', command: 'git log -- literature' },
+    { tool: 'Bash', command: 'echo x > scope.md' },
+    { tool: 'Bash', command: 'echo "rm manuscript/main.tex > x" > notes/ai/quote.md' },
+    { tool: 'Bash', command: 'cat << EOF > notes/ai/q.md\necho x > manuscript/main.tex\nEOF' },
+    { tool: 'Bash', command: 'git commit -m "note on manuscript/ and CLAUDE.md" -- notes' },
+    { tool: 'Bash', command: 'grep -o manuscript/main.tex notes/ai/a.md' },
   ]
   for (const call of harmless) {
     const label = `${call.tool} ${call.command ?? call.file_path}`
@@ -687,20 +694,6 @@ test('reading, and writing in Claude\'s own places, just works and leaves no rec
   }
   expect(ran.length).toBe(harmless.length)
   expect(refusals().length).toBe(0)
-})
-
-test('finding 9: a command that only reads from the manuscript is let through', async ($, on) => {
-  const { refusals } = await guardedSession($, on)
-  for (const command of [
-    'cp manuscript/main.tex notes/ai/copy.md',
-    'pandoc manuscript/main.tex -o notes/ai/out.html',
-    'python3 -c "print(open(\'manuscript/main.tex\').read()[:20])"',
-  ]) {
-    await stillBroken('finding 9', async () => {
-      expect((await $.tool.call({ tool: 'Bash', command })).deny, command).toBeUndefined()
-    })
-  }
-  expect(refusals().length).toBe(3) // each is on the record until then
 })
 
 test('the AI log only grows: what a tool call rewrites anyway goes back, is recorded, and its altered form is kept', async ($, on) => {
@@ -742,18 +735,18 @@ test('the AI log only grows: what a tool call rewrites anyway goes back, is reco
   expect(guards().length).toBe(2)
 })
 
-test('finding 11: a forged new file in the log does not pass unnoticed', async ($, on) => {
-  const { guards, settled } = await guardedSession($, on, {
+test('a new file in the log other than this month\'s is taken out, kept and recorded', async ($, on) => {
+  const { files, guards, settled } = await guardedSession($, on, {
     'L=ai; echo S11 > "${L}-log/forged.jsonl"': f => f.set(`${ROOT}/ai-log/forged.jsonl`, 'S11\n'),
   })
   await $.tool.call({ tool: 'Bash', command: 'L=ai; echo S11 > "${L}-log/forged.jsonl"' })
   await settled()
-  await stillBroken('finding 11', () => {
-    expect(guards().some(e => e.type === 'guard' && e.files.includes('ai-log/forged.jsonl'))).toBe(true)
-  })
+  expect(guards().some(e => e.type === 'guard' && e.files.includes('ai-log/forged.jsonl'))).toBe(true)
+  expect(files.has(`${ROOT}/ai-log/forged.jsonl`)).toBe(false)
+  expect([...files].some(([k, text]) => k.startsWith(`${ROOT}/.cowriting/`) && text === 'S11\n')).toBe(true)
 })
 
-test('finding 12: each of several personas\' reports asks for a classification, however they arrive', async ($, on) => {
+test('each of several personas\' reports asks for a classification, however they arrive', async ($, on) => {
   const files = paperFiles()
   workspace(on, files)
   on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
@@ -782,11 +775,9 @@ test('finding 12: each of several personas\' reports asks for a classification, 
   await $.turn.complete({ answer: 'Both have reported.', durationMs: 5, isAborted: false, turnId: 't1', reason: 'answer' })
 
   const entries = [...files].filter(([k]) => k.startsWith(`${ROOT}/ai-log/`)).flatMap(([, v]) => parseLog(v))
-  await stillBroken('finding 12', () => {
-    const open = computeStats(entries, new Date()).openByPersona
-    expect(open['terminologist']).toBe(1)
-    expect(open['architect']).toBe(1)
-  })
+  const open = computeStats(entries, new Date()).openByPersona
+  expect(open['terminologist']).toBe(1)
+  expect(open['architect']).toBe(1)
 })
 
 test('log writes of one paper run one after another, in order', async () => {

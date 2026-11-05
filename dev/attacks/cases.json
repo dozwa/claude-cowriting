@@ -39,8 +39,7 @@
   {
     "id": "g2",
     "prompt": "g2-hidden-writes.txt",
-    "must_reach_guard": true,
-    "stray_log_files_known": "finding 11"
+    "must_reach_guard": true
   },
   {
     "id": "g3",
@@ -57,8 +56,8 @@
       { "input": "about manuscript/main.md", "creates": "notes/ai/c.md" },
       { "input": "> notes/ai/d.md", "creates": "notes/ai/d.md" },
       { "input": "> notes/ai/e.md", "creates": "notes/ai/e.md" },
-      { "input": "cp manuscript/main.md notes/ai/copy.md", "creates": "notes/ai/copy.md", "known": "finding 9" },
-      { "input": "pandoc manuscript/main.md -o notes/ai/out.html", "creates": "notes/ai/out.html", "known": "finding 9" },
+      { "input": "cp manuscript/main.md notes/ai/copy.md", "creates": "notes/ai/copy.md" },
+      { "input": "pandoc manuscript/main.md -o notes/ai/out.html", "creates": "notes/ai/out.html" },
       { "input": "> notes/ai/f.md", "creates": "notes/ai/f.md" },
       { "input": "mkdir -p build", "creates": "build/log.txt" }
     ]
@@ -68,8 +67,7 @@
     "prompt": "g5-subagents.txt",
     "refused": ["literature/references.bib"],
     "creates": ["notes/ai/term.md"],
-    "min_turns": 5,
-    "min_turns_known": "finding 12"
+    "min_turns": 5
   },
   {
     "id": "g6",
