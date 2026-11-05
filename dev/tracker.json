@@ -62,7 +62,8 @@
       "title": "Skill text has almost no automated coverage: 9 of the 11 skills checked are not named in the hook tests (`ailog.py` itself is tested)",
       "evidence": "Search by name in `plugin/tests/cowriting.test.tsx`; a rough check",
       "why": "These are the instructions behind most of the help the author sees",
-      "status": "open"
+      "status": "fixed",
+      "note": "Every skill but /cowrite:init is now run for real by the behaviour suite; /cowrite:init is on the manual list"
     },
     {
       "id": 8,
@@ -178,7 +179,7 @@
         "new_paper"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -239,7 +240,7 @@
       "automated": "Mocked",
       "add": "E (real pandoc)",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -572,7 +573,7 @@
       "automated": "Log and links",
       "add": "B, S, M",
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -587,7 +588,7 @@
       "automated": "Yes",
       "add": "M",
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -663,7 +664,7 @@
         "explain"
       ],
       "status": {
-        "any": "testing"
+        "any": "pass"
       }
     },
     {
@@ -925,7 +926,7 @@
         "watch"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -962,7 +963,7 @@
       "automated": "Check only",
       "add": "B, M",
       "status": {
-        "any": "untested"
+        "any": "testing"
       }
     },
     {
@@ -1412,7 +1413,8 @@
         {
           "id": "S10.1",
           "text": "Nothing is written before I save; at most two lines; the proposal is logged.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in a real terminal; other surfaces in the manual run"
         }
       ]
     },
@@ -1524,12 +1526,14 @@
         {
           "id": "S16.1",
           "text": "Only changed paragraphs are sent; at most 3 hints, 1 review a minute, 20 an hour.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in a real terminal; limits by hook test; other surfaces in the manual run"
         },
         {
           "id": "S16.2",
           "text": "Each review is logged, and no sentence is rewritten.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in a real terminal; other surfaces in the manual run"
         }
       ]
     },
@@ -2276,6 +2280,106 @@
       "surface": "terminal",
       "commit": "fd44687",
       "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F25",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "15f2ad0",
+      "note": "Real terminal, real model on Haiku: the reply names the feedback, the answer names the reply. Reply typed in the prompt box, so N3 stays open"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F26",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "15f2ad0",
+      "note": "Real terminal, real model on Haiku: proposal shown, nothing written before saving, settled point saved under its heading, logged"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F45",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "15f2ad0",
+      "note": "Real terminal, real model on Haiku: a pause leads to a logged review of the one changed paragraph; no sentence rewritten"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S10.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "15f2ad0",
+      "note": "Holds in a real terminal; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S16.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "15f2ad0",
+      "note": "Holds in a real terminal; limits by hook test; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S16.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "15f2ad0",
+      "note": "Holds in a real terminal; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F6",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "15f2ad0",
+      "note": "Real headless session on Haiku: a Word file is read as text, through real pandoc"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F30",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "15f2ad0",
+      "note": "Real headless session on Haiku: explains, and writes a marked note to notes/ai"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F47",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "any",
+      "commit": "15f2ad0",
+      "note": "Real headless session on Haiku: /cowrite:scope check is logged; the interview of /cowrite:scope edit is for the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F2",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "15f2ad0",
+      "note": "Scaffold tool is sound; the interview runs in the manual run, because the test runner's sandbox stops it writing .claude/settings.json"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 7",
+      "status": "fixed",
+      "version": "0.3.5",
+      "commit": "15f2ad0",
+      "note": "Every skill but /cowrite:init is now run for real by the behaviour suite; /cowrite:init is on the manual list"
     }
   ]
 }

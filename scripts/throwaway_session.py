@@ -37,6 +37,7 @@ TIMEOUT_SECONDS = 300
 OTHER_PROJECTS = {
     "other-named-alike": {"manuscript/old.md": "old\n", "literature/a.bib": "old\n", "ai-log/app.jsonl": "old\n", "CLAUDE.md": "old\n", "party.md": "old\n"},
     "other-with-paper-json": {"paper.json": '{"title": "Config of another tool"}\n', "CLAUDE.md": "old\n", "src/app.txt": "old\n"},
+    "empty": {"README.txt": "An empty folder, where a paper is about to be set up.\n"},
 }
 
 

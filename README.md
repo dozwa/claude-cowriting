@@ -119,6 +119,8 @@ Open your writing folder in VS Code (or a terminal), start Claude Code, and run:
 
 Claude Code runs somewhere else, e.g. in your home folder? Give the paper's folder: `/cowrite:init ~/Papers/my-thesis` sets it up there. Later, `/cowrite:paper ~/Papers/my-thesis` opens it again from anywhere, and `/cowrite:paper` alone lists your recent papers to pick by number. If the folder already holds your draft (say `paper.md`), move it into `manuscript/` yourself afterwards; Claude never touches that folder.
 
+If you already keep Claude Code's Bash sandbox switched on, it stops the setup from writing `.claude/settings.json`: switch it off for this one step, or run `new_paper.py` yourself in a terminal.
+
 Claude asks five questions:
 - LaTeX or Markdown
 - English or German

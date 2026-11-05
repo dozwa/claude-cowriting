@@ -2,12 +2,15 @@
 """Test type E without a model: the plugin's work on real tools, real git, the real network and a real terminal.
 
 Costs no tokens. Needs tmux, git and network access (Crossref). Judged from files, git and the screen.
+With --with-model it runs what needs a live model in the pane instead (Reply, Remember, live review),
+which uses a few tokens on Haiku.
 
-    python3 scripts/workflow_suite.py
+    python3 scripts/workflow_suite.py [--with-model]
 """
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -15,6 +18,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import attack_suite
 import screen_suite
 import throwaway_session as runner
 from screen_suite import Pane
@@ -176,11 +180,90 @@ def an_expert_of_ones_own() -> None:
         pane.close()
 
 
+def wait_for(test, seconds: int = 150) -> bool:
+    for _ in range(seconds // 5):
+        if test():
+            return True
+        time.sleep(5)
+    return test()
+
+
+def log_of(paper: Path) -> list[dict]:
+    return attack_suite.log_entries(paper)
+
+
+def reply_in_a_thread() -> None:
+    """F25, S9: uses a model. Reply from the opened input; the persona answers, and the log keeps the thread."""
+    pane = Pane(100, 40)
+    try:
+        for key in ("2", "o", "y"):
+            pane.press(key)
+        pane.type("Why is participants better than subjects in my field? Please argue your position.", wait=2)
+        check("the reply is logged and names the feedback", wait_for(lambda: any(e.get("replyTo") == "report1" for e in log_of(pane.paper))))
+        replies = [e["id"] for e in log_of(pane.paper) if e.get("replyTo") == "report1"]
+        answered = wait_for(lambda: any(e.get("origin") == "agent" and e.get("replyTo") in replies for e in log_of(pane.paper)), 200)
+        check("the persona's answer names the reply", answered, str([(e.get("origin"), e.get("replyTo")) for e in log_of(pane.paper) if e.get("type") == "prompt"]))
+    finally:
+        pane.close()
+
+
+def remember_a_discussion() -> None:
+    """F26, S10: uses a model. Nothing is written before the author saves, and the proposal is logged."""
+    thread = runner.ROOT / "dev/attacks/fixtures/seed-thread.jsonl"
+
+    def with_a_discussion(paper: Path) -> None:
+        with (paper / "ai-log/2026-11.jsonl").open("a", encoding="utf-8") as out:
+            out.write(thread.read_text(encoding="utf-8"))
+
+    pane = Pane(100, 50, prepare=with_a_discussion)
+    try:
+        before = (pane.paper / "party.md").read_text(encoding="utf-8")
+        for key in ("2", "o"):
+            pane.press(key)
+        pane.press("m")
+        check("a proposal appears for the author to edit", wait_for(lambda: pane.sees("Save to party.md") or pane.sees("keep in mind"), 60), pane.screen()[-600:])
+        check("nothing is written before saving", (pane.paper / "party.md").read_text(encoding="utf-8") == before)
+        pane.press("s", wait=3)
+        after = (pane.paper / "party.md").read_text(encoding="utf-8")
+        check("saving writes what was settled under the persona's heading", after != before and "participants" in after.split("## terminologist")[-1].lower(), after[-300:])
+        check("the proposal is logged as AI input", any(e.get("origin") == "brief" for e in log_of(pane.paper)), str({e.get("origin") for e in log_of(pane.paper)}))
+    finally:
+        pane.close()
+
+
+def live_review() -> None:
+    """F45, S16: uses a model. Only what changed is sent, the hints show, and the review is logged."""
+    pane = Pane(100, 50, open_pane=False)
+    try:
+        pane.type("/cowrite:watch on", wait=20)  # it takes its baseline at its first look; an edit before that is part of it
+        with (pane.paper / "manuscript/main.md").open("a", encoding="utf-8") as out:
+            out.write("\nThe subject were tested at a time when there was a big amount of things happening around them in the room.\n")
+        reviewed = wait_for(lambda: any(e.get("origin") == "watch" for e in log_of(pane.paper)), 120)
+        check("a pause leads to a logged review", reviewed, str({e.get("origin") for e in log_of(pane.paper)}))
+        sent = [str(e.get("text", "")) for e in log_of(pane.paper) if e.get("origin") == "watch"]
+        # the log names the lines it reviewed: the one new paragraph at the end of the file, not the whole text
+        lines = len((pane.paper / "manuscript/main.md").read_text(encoding="utf-8").splitlines())
+        reviewed_lines = re.search(r"l\.(\d+)[–-](\d+)", sent[-1]) if sent else None
+        check("the log says only the changed paragraph was reviewed", reviewed_lines is not None and int(reviewed_lines[1]) == int(reviewed_lines[2]) == lines, (sent[-1][:200] if sent else ""))
+        pane.type("/cowrite:pane")
+        pane.press("3")
+        hints = [str(e.get("answer", "")) for e in log_of(pane.paper) if e.get("type") == "response" and e.get("personas") is not None]
+        seen = False
+        for _ in range(4):
+            seen = seen or pane.sees("✓ used")
+            pane.press("PageDown")
+        check("the Live tab's choices can be reached", seen, pane.screen()[-500:])
+        check("no hint rewrites the sentence", not any("The subjects were tested at a time" in h for h in hints))
+    finally:
+        pane.close()
+
+
 def main() -> int:
     if shutil.which("tmux") is None:
         print("This suite needs tmux.")
         return 2
-    for step in (live_references, upgrade_keeps_the_authors_files, autosave_commits_under_the_authors_name, a_paper_without_git, every_tab_shows_its_content, the_status_line_counts_what_stats_counts, a_paper_opened_from_elsewhere, an_expert_of_ones_own):
+    steps = [reply_in_a_thread, remember_a_discussion, live_review] if "--with-model" in sys.argv else [live_references, upgrade_keeps_the_authors_files, autosave_commits_under_the_authors_name, a_paper_without_git, every_tab_shows_its_content, the_status_line_counts_what_stats_counts, a_paper_opened_from_elsewhere, an_expert_of_ones_own]
+    for step in steps:
         print(f"... {step.__name__}", flush=True)
         step()
     for state, name in results:

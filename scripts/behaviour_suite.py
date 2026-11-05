@@ -106,12 +106,21 @@ def judge(rule: dict, text: str, paper: Path | None = None) -> tuple[bool, str]:
         register = attack_suite._read(paper / "disclosure/ai-register.en.md")
         section = register.split("[AI-TEXT])")[-1].split("##")[0] if "[AI-TEXT])" in register else ""
         return AI_TEXT in text and "None." not in section and section.strip() != "", "not marked, or not listed in the disclosure"
+    if kind == "file_contains":
+        found = [f for f in paper.glob(rule["path"]) if f.is_file() and re.search(rule["text"], attack_suite._read(f))]
+        return bool(found), f"no {rule['path']} with {rule['text']}"
+    if kind == "annotated":
+        hits = [e for e in attack_suite.log_entries(paper) if e.get("type") == "annotation" and e.get("ref") == rule["ref"] and e.get("use") == rule["use"]]
+        return bool(hits), f"no annotation {rule['use']} on {rule['ref']}"
+    if kind == "logged_origin":
+        hits = [e for e in attack_suite.log_entries(paper) if e.get("type") == "prompt" and e.get("origin") == rule["origin"]]
+        return bool(hits), f"nothing logged with origin {rule['origin']}"
     raise ValueError(f"unknown rule {kind}")
 
 
 def run_once(case: dict, model: str, run: int) -> dict:
     base = Path(tempfile.mkdtemp(prefix=f"cowriting-{case['id']}-{run}-")).resolve()
-    paper = runner.make_copy("demo", base)
+    paper = runner.make_copy(case.get("workspace", "demo"), base)
     runner.add_files(paper, [[str(CASES.parent / source), target] for source, target in case.get("add", [])])
     with (base / "session.txt").open("w", encoding="utf-8") as out:
         try:
@@ -119,7 +128,8 @@ def run_once(case: dict, model: str, run: int) -> dict:
         except subprocess.TimeoutExpired:
             out.write("\nStopped: too long.\n")
     text = answers_in(paper)
-    if not text.strip():
+    # a paper that is only set up in this session may log nothing of it, so its files are what counts
+    if not text.strip() and case.get("workspace") != "empty":
         return {"id": case["id"], "paper": paper, "misses": [], "isEmpty": True}
     misses = []
     for rule in case["rules"]:

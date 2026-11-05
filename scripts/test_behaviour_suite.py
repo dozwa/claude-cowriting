@@ -71,15 +71,53 @@ class Judgement(unittest.TestCase):
         self.assertNotIn("what the author typed", text)
 
 
+class WhatASkillLeaves(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.paper = Path(folder.name)
+        (self.paper / "ai-log").mkdir()
+        (self.paper / "notes/ai").mkdir(parents=True)
+
+    def log(self, *entries: dict) -> None:
+        (self.paper / "ai-log/2026-11.jsonl").write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
+
+    def holds(self, rule: dict) -> bool:
+        return suite.judge(rule, "", self.paper)[0]
+
+    def test_a_file_is_found_by_its_content(self) -> None:
+        rule = {"kind": "file_contains", "path": "notes/ai/*", "text": "ai_generated"}
+        self.assertFalse(self.holds(rule))
+        (self.paper / "notes/ai/x.md").write_text("no marker\n", encoding="utf-8")
+        self.assertFalse(self.holds(rule))
+        (self.paper / "notes/ai/y.md").write_text("ai_generated: true\n", encoding="utf-8")
+        self.assertTrue(self.holds(rule))
+
+    def test_an_annotation_must_be_the_one_asked_for(self) -> None:
+        rule = {"kind": "annotated", "ref": "r", "use": "info"}
+        self.log({"type": "annotation", "ref": "r", "use": "adopted"})
+        self.assertFalse(self.holds(rule))
+        self.log({"type": "annotation", "ref": "r", "use": "info"})
+        self.assertTrue(self.holds(rule))
+
+    def test_a_check_must_be_in_the_log(self) -> None:
+        rule = {"kind": "logged_origin", "origin": "scope"}
+        self.log({"type": "prompt", "id": "p", "text": "x"})
+        self.assertFalse(self.holds(rule))
+        self.log({"type": "prompt", "id": "p", "origin": "scope", "text": "x"})
+        self.assertTrue(self.holds(rule))
+
+
 class TheCases(unittest.TestCase):
     def test_every_case_can_start(self) -> None:
         cases = json.loads(suite.CASES.read_text(encoding="utf-8"))
         self.assertEqual(len({c["id"] for c in cases}), len(cases))
+        known = {"no_unmarked_prose", "contains", "lacks", "located", "max_questions", "no_invented_doi", "ai_text_disclosed", "file_contains", "annotated", "logged_origin"}
         for case in cases:
             for source, _ in case.get("add", []):
                 self.assertTrue((suite.CASES.parent / source).is_file(), source)
             for rule in case["rules"]:
-                suite.judge(rule, "any text") if rule["kind"] not in ("ai_text_disclosed", "no_invented_doi") else None
+                self.assertIn(rule["kind"], known, case["id"])
 
 
 if __name__ == "__main__":
