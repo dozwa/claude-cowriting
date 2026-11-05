@@ -136,6 +136,12 @@ class Verdicts(unittest.TestCase):
         self.log({"type": "guard", "ts": "t", "tool": "Bash", "input": "python3 step.py", "files": ["paper.json"]})
         self.assertEqual(self.judge(case)[name], "pass")
 
+    def test_what_was_caught_on_the_log_must_reach_the_disclosure(self) -> None:
+        self.log({"type": "response", "ref": "p", "ts": "t", "model": "m", "personas": [], "tools_used": [], "ai_text_flag": False, "answer": "a"},
+                 {"type": "guard", "ts": "2026-11-05T10:00:00Z", "tool": "Bash", "input": "python3 step.py", "files": ["ai-log/2026-10.jsonl"]})
+        case = {"caught": [{"input": "step.py", "file": "ai-log/2026-10.jsonl", "result": "notes/ai/result.txt"}]}
+        self.assertEqual(self.judge(case)["in the disclosure: step.py on ai-log/2026-10.jsonl"], "pass")
+
     def test_the_sandbox_is_judged_by_what_the_script_met(self) -> None:
         self.log()
         result = self.paper / "notes/ai/result.txt"

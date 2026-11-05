@@ -95,7 +95,7 @@
       "evidence": "`dev/attacks/g2-hidden-writes.txt`, step 11, run 2026-11-05; `ailog.py stats` skipped the invalid line silently",
       "why": "A whole forged file would feed the disclosure. The author asked for the log to be guarded from anything but append",
       "status": "fixed",
-      "note": "New files in the log are taken out, kept and recorded. Hook test only: real case g2 has not reached the guard yet"
+      "note": "Hook test and real session g8: a forged file is taken out, kept, recorded and disclosed"
     },
     {
       "id": 12,
@@ -304,7 +304,7 @@
       "automated": "Settings file only",
       "add": "G (real OS)",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -322,7 +322,7 @@
       "automated": "Yes",
       "add": "G",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -370,7 +370,7 @@
       "automated": "Yes",
       "add": "E",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -405,7 +405,7 @@
         "annotate"
       ],
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -525,7 +525,7 @@
         "summon"
       ],
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -574,7 +574,7 @@
       "automated": "Log and links",
       "add": "B, S, M",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -606,7 +606,7 @@
       "automated": "Yes",
       "add": "E",
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -704,7 +704,7 @@
         "sources"
       ],
       "status": {
-        "any": "testing"
+        "any": "pass"
       }
     },
     {
@@ -789,7 +789,7 @@
         "style_profile"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -805,7 +805,7 @@
         "pane"
       ],
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -820,7 +820,7 @@
       "automated": "Yes",
       "add": "S, M",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -840,7 +840,7 @@
       "automated": "Yes",
       "add": "S, M, H",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -857,7 +857,7 @@
       "automated": "Partly",
       "add": "S",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -874,7 +874,7 @@
       "automated": "Yes",
       "add": "S, M",
       "status": {
-        "terminal": "testing",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -892,7 +892,7 @@
         "quiet"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -907,7 +907,7 @@
       "automated": "Yes",
       "add": "M",
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -947,7 +947,7 @@
         "scope"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -977,7 +977,7 @@
       "automated": "Yes",
       "add": "U",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -990,7 +990,7 @@
       "automated": "Yes",
       "add": "M",
       "status": {
-        "terminal": "untested",
+        "terminal": "pass",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -1066,20 +1066,20 @@
     {
       "id": "R5.1",
       "text": "No invented references",
-      "status": "partly",
-      "note": "`verify_refs.py` is real; the model's obedience is rule only"
+      "status": "met",
+      "note": "verify_refs against live Crossref, and no invented DOI offered as fact in real sessions; the wording of the label varies"
     },
     {
       "id": "R5.2",
       "text": "Summaries labelled, quotes with page numbers",
-      "status": "partly",
-      "note": "Rule only"
+      "status": "met",
+      "note": "Summaries labelled or marked as unverified, 4 of 4 runs across the full run and the rerun"
     },
     {
       "id": "R5.3",
       "text": "Plagiarism risks are flagged",
-      "status": "partly",
-      "note": "Integrity Guardian; rule only"
+      "status": "met",
+      "note": "The Integrity Guardian flagged seeded copied text and a quote without a page; one run"
     },
     {
       "id": "R6.1",
@@ -2532,6 +2532,228 @@
       "version": "0.3.5",
       "commit": "9d09b1d",
       "note": "Guard held in real sessions on plain writes, the sandbox on hidden ones. F11 on the author's files is on the manual list; limits are in the README"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F10",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "G",
+      "commit": "eb47a73",
+      "note": "Real terminal session: seeded scripts met Operation not permitted on the text, paper.json and through a link (g9). The demo's Edit deny rule also reaches the sandbox: its manuscript was stopped too (g8)"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F11",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "G",
+      "commit": "eb47a73",
+      "note": "Real terminal session g8: a script's change to paper.json is recorded; a rewrite, a removal and a forged file in the log are undone, kept and disclosed. On the manuscript the sandbox stops it first: hook test, and on the manual list"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F14",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "eb47a73",
+      "note": "Paper trail: every prompt once, with its answer, model and versions, in real sessions"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F16",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: a key records the choice, the count drops, and no key decides on what isn't shown"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F25",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "eb47a73",
+      "note": "Real terminal, real persona: typed in the pane, answered in the thread, kept in the log"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F27",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "eb47a73",
+      "note": "Real terminal, real model: the diff since an input is described and logged"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F38",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal at five sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F39",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F40",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal at five sizes, real persona in the thread"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F41",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F42",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: the status line agrees with the tool and the tab"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F43",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "E",
+      "commit": "eb47a73",
+      "note": "Real terminal, real model: off shows the step, focus hides it"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F44",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: the meter shows; its settings are on the manual list"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F46",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: words match a hand count, days and ticked points are right"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F49",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: speaks up after three AI texts"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F48",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "S",
+      "commit": "eb47a73",
+      "note": "Real terminal: 100 own words earn 10 XP, none before"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F37",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "eb47a73",
+      "note": "Real session: the Style Coach compares with a model paper"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F32",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "eb47a73",
+      "note": "Real sessions, with and without a search tool: no invented DOI offered as fact in 8 runs, read by a person"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F22",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "by": "B",
+      "commit": "eb47a73",
+      "note": "Real headless sessions: /cowrite:summon for all ten personas, /cowrite:ask once"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R5.1",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "eb47a73",
+      "note": "verify_refs against live Crossref, and no invented DOI offered as fact in real sessions; the wording of the label varies"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R5.2",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "eb47a73",
+      "note": "Summaries labelled or marked as unverified, 4 of 4 runs across the full run and the rerun"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "R5.3",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "eb47a73",
+      "note": "The Integrity Guardian flagged seeded copied text and a quote without a page; one run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 11",
+      "status": "fixed",
+      "version": "0.3.5",
+      "commit": "eb47a73",
+      "note": "Hook test and real session g8: a forged file is taken out, kept, recorded and disclosed"
     }
   ]
 }

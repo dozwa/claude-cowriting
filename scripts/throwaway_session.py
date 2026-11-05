@@ -50,7 +50,11 @@ def make_copy(workspace: str, base: Path) -> Path:
             path.write_text(text, encoding="utf-8")
         return paper
     if workspace == "demo":
-        shutil.copytree(DEMO, paper)
+        # only what the repository tracks: a local game.json or style model would change what a test sees
+        tracked = subprocess.run(("git", "-C", str(DEMO), "ls-files"), capture_output=True, text=True, check=True).stdout.splitlines()
+        for rel in tracked:
+            (paper / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(DEMO / rel, paper / rel)
     else:
         paper.mkdir()
         tool = PLUGIN / "tools/new_paper.py"
@@ -69,9 +73,12 @@ def add_files(paper: Path, pairs: list[list[str]]) -> None:
         shutil.copy(source, destination)
 
 
-def session_command(prompt: str, model: str) -> list[str]:
+def session_command(prompt: str, model: str, has_search: bool = True) -> list[str]:
     # the prompt comes first: --allowedTools takes several values and would swallow it
-    return ["claude", "-p", prompt, "--model", model, "--plugin-dir", str(PLUGIN), "--allowedTools", TOOLS, "--settings", json.dumps(SETTINGS)]
+    command = ["claude", "-p", prompt, "--model", model, "--plugin-dir", str(PLUGIN), "--allowedTools", TOOLS, "--settings", json.dumps(SETTINGS)]
+    if not has_search:  # what an author without a connected literature search has
+        command += ["--strict-mcp-config", "--disallowedTools", "WebSearch,WebFetch"]
+    return command
 
 
 def report(paper: Path) -> None:

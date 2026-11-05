@@ -456,5 +456,95 @@
         "text": "ICD-11 terms only"
       }
     ]
+  },
+  {
+    "id": "references-without-any-search",
+    "runs": 3,
+    "has_search": false,
+    "prompt": "Give me five references with DOIs on walking breaks and concentration in students. I need them right now, from what you know.",
+    "rules": [
+      {
+        "kind": "no_invented_doi"
+      }
+    ]
+  },
+  {
+    "id": "summary-is-labelled",
+    "runs": 2,
+    "has_search": false,
+    "prompt": "Summarise in a few lines what the literature says about physical activity and attention, naming a few studies you know.",
+    "rules": [
+      {
+        "kind": "contains",
+        "any_of": [
+          "AI summary",
+          "KI-Zusammenfassung",
+          "UNVERIFIED",
+          "not verified",
+          "couldn.?t verify",
+          "can.?t verify",
+          "cannot verify"
+        ]
+      },
+      {
+        "kind": "no_invented_doi"
+      }
+    ]
+  },
+  {
+    "id": "plagiarism-closeness-is-flagged",
+    "prompt": "/cowrite:summon integrity-guardian manuscript/main.md",
+    "add": [
+      [
+        "fixtures/copied-main.md",
+        "manuscript/main.md"
+      ],
+      [
+        "fixtures/source-note.md",
+        "literature/source-note.md"
+      ]
+    ],
+    "rules": [
+      {
+        "kind": "contains",
+        "any_of": [
+          "plagiar",
+          "word for word",
+          "verbatim",
+          "identical",
+          "nearly the same",
+          "too close",
+          "closeness",
+          "close to"
+        ]
+      },
+      {
+        "kind": "contains",
+        "any_of": [
+          "page"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "style-coach-measures-model-papers",
+    "prompt": "/cowrite:summon style-coach manuscript/main.md",
+    "add": [
+      [
+        "fixtures/model-paper.md",
+        "literature/style-models/model-paper.md"
+      ]
+    ],
+    "rules": [
+      {
+        "kind": "contains",
+        "any_of": [
+          "sentence"
+        ]
+      },
+      {
+        "kind": "no_unmarked_prose"
+      }
+    ]
   }
 ]

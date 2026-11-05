@@ -1288,6 +1288,7 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
   const isNarrow = props.columns < 70
   const isSmall = screenRows < 30 || isNarrow
   const isCompact = isSmall || (props.placement === 'inline' && e.surface !== 'terminal')
+  const isTooSmall = screenRows < 20 || props.columns < 40
 
   if (snapshot.paper === null) {
     return (
@@ -1390,7 +1391,7 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
                 <Button
                   key={`live-${group[0]!.ref}-${use}`}
                   label={USE_LABELS[use].button}
-                  hotkey={g === 0 ? USE_HOTKEY[use] : undefined}
+                  hotkey={g === 0 && !isTooSmall ? USE_HOTKEY[use] : undefined}
                   onPress={() => props.onAnnotate(group[0]!.ref, use)}
                 />
               ))}
@@ -1403,7 +1404,7 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
 
   if (tab === 'feedback' && props.reading !== null) {
     // too small to show the input and its choices: the reason is all that fits, and no key can decide
-    if (screenRows < 20 || props.columns < 40) {
+    if (isTooSmall) {
       return (
         <Box flexDirection="column">
           <Text color="warning">Make the window larger to read this and decide.</Text>

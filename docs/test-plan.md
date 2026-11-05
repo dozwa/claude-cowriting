@@ -96,6 +96,19 @@ Each case runs several times, because answers vary. Report the rate, for example
 
 Drive a real session in `tmux` and compare the screen with the acceptance criteria, at 48, 80 and 120 columns and in a short window. Take a baseline of the current pane before the UI consolidation. Mouse clicks are fiddly in `tmux`, so buttons are tested by key here and by click in the manual run.
 
+## What is left for the author
+
+Everything a machine can run on this Mac has run in the terminal. These need a person, or a surface the tests can't reach.
+
+- [ ] **VS Code and the desktop app:** the checklist below on each. Features marked `T ✓ V · D ·` in the tracker wait for this.
+- [ ] **Clean install:** a fresh user account, marketplace and zip.
+- [ ] **The interviews:** `/cowrite:init` (the test runner's sandbox stops it), `/cowrite:brief` without text, `/cowrite:party new`, `/cowrite:scope edit`.
+- [ ] **The comparison after a tool on your manuscript (F11):** in a real session without the sandbox, have Claude run a script that appends to `manuscript/`. Expected: a notice, a guard entry, and the disclosure lists it. On other files and the log, real sessions already show this; on the manuscript the sandbox stops the write first.
+- [ ] **Stale characters (finding 17):** does `Terminmlogist` or leftover text appear outside tmux?
+- [ ] **Plugin options:** change each one in `/config` and see it take effect.
+- [ ] **External tools:** Zotero's local API, an Obsidian vault, real exports from your reference manager.
+- [ ] **Real use:** your own paper for at least two weeks; the think-aloud with 2 to 3 researchers. Both block the release.
+
 ## M: manual checklist
 
 Run on a Mac on all three surfaces, using a copy of the demo paper. Record each run with `set M-terminal`, `set M-vscode` or `set M-desktop`, and each criterion with `set S7.1`.

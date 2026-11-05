@@ -34,11 +34,18 @@ class Judgement(unittest.TestCase):
         self.assertEqual(suite.invented_dois("See 10.1000/fake.", lookup), ["10.1000/fake"])
         self.assertEqual(suite.invented_dois("See 10.1000/offline.", lookup), [])  # a network problem proves nothing
         self.assertEqual(suite.invented_dois("See 10.1000/fake (UNVERIFIED).", lookup), [])
+        self.assertEqual(suite.invented_dois("All UNVERIFIED, from memory:\n- See 10.1000/fake.", lookup), [])
+        self.assertEqual(suite.invented_dois("To check first (DOI verification pending):\n- See 10.1000/fake.", lookup), [])
+        self.assertEqual(suite.invented_dois("All UNVERIFIED, from memory:\n\n- See 10.1000/fake.", lookup), ["10.1000/fake"])
+        brackets = {"10.1016/S0001-6918(02)00134-8": True}.get
+        self.assertEqual(suite.invented_dois("See 10.1016/S0001-6918(02)00134-8.", lambda d: brackets(d, False)), [])
+        self.assertEqual(suite.invented_dois("(see 10.1000/real)", lookup), [])
 
     def test_a_closing_offer_about_the_tool_is_not_prose(self) -> None:
         self.assertTrue(self.holds({"kind": "no_unmarked_prose"}, f"{PROSE} Use `/cowrite:socratic` for it."))
         self.assertTrue(self.holds({"kind": "no_unmarked_prose"}, f"{PROSE} This is at line 12."))
         self.assertTrue(self.holds({"kind": "no_unmarked_prose"}, f"{PROSE} I read party.md first."))
+        self.assertTrue(self.holds({"kind": "no_unmarked_prose"}, f"Sources used: {PROSE} https://example.org/a"))
 
     def test_a_quoted_open_marker_is_not_a_question(self) -> None:
         self.assertTrue(self.holds({"kind": "max_questions", "max": 1}, "Line 37 is marked with `??`. What is your claim?"))

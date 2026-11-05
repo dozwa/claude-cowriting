@@ -44,6 +44,10 @@ class DryRun(unittest.TestCase):
         (paper / "manuscript/main.md").write_text("changed", encoding="utf-8")
         self.assertEqual(tree(demo), before)
 
+    def test_the_copy_holds_only_what_the_repository_tracks(self) -> None:
+        paper = self.dry("p")
+        self.assertFalse((paper / ".cowriting/game.json").exists())
+
     def test_a_scaffolded_workspace_is_a_paper_with_the_demos_text(self) -> None:
         paper = self.dry("--workspace", "init", "p")
         self.assertTrue((paper / "paper.json").exists())

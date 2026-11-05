@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import attack_suite
@@ -185,6 +186,49 @@ def attack_suite_text(entry: dict) -> str:
     return str(entry.get("text", "")).split("The report follows:")[-1]
 
 
+def counted_words_and_progress() -> None:
+    """F46, F48, S18, S19: the Scope tab against a hand count; XP from the author's words."""
+    def known_text(paper: Path) -> None:
+        (paper / "manuscript/main.md").write_text("# Title\n\n" + " ".join(["word"] * 120) + "\n", encoding="utf-8")
+    pane = Pane(100, 60, prepare=known_text)
+    try:
+        pane.press("5")
+        check("the Scope tab counts the words as a person would", pane.sees("Words 120/1500"), pane.screen()[-900:])
+        days = (date.fromisoformat("2027-01-31") - date.today()).days
+        check("it counts the days to the deadline", f"{days} days left" in pane.screen(), f"expected {days}")
+        check("a point ticked by the author counts", pane.sees("Points 1/6"))
+        pane.press("6")
+        check("no XP before anything is written", pane.sees("Writing 0 XP"), pane.screen()[-700:])
+        with (pane.paper / "manuscript/main.md").open("a", encoding="utf-8") as out:
+            out.write(" ".join(["more"] * 100) + "\n")
+        pane.press("r", wait=3)
+        check("100 own words earn 10 XP", pane.sees("Writing 10 XP (100 own words)"), pane.screen()[-700:])
+    finally:
+        pane.close()
+
+
+def the_nudge_and_the_meter() -> None:
+    """F44, F49: the overreliance nudge speaks up, and the usage meter shows."""
+    flagged = "".join(
+        json.dumps(e) + "\n"
+        for i in range(3)
+        for e in (
+            {"type": "prompt", "id": f"t{i}", "ts": f"2026-11-02T10:0{i}:00Z", "session": "seed", "paper": "x", "category": "general", "text": "write it"},
+            {"type": "response", "ref": f"t{i}", "ts": f"2026-11-02T10:0{i}:05Z", "model": "seed", "personas": [], "tools_used": [], "ai_text_flag": True, "answer": "[AI-TEXT] some text"},
+        )
+    )
+    def seed(paper: Path) -> None:
+        with (paper / "ai-log/2026-11.jsonl").open("a", encoding="utf-8") as out:
+            out.write(flagged)
+    pane = Pane(100, 50, prepare=seed)
+    try:
+        check("the usage meter shows", pane.sees("limit") or pane.sees("tokens"), pane.screen()[:600])
+        pane.press("2")
+        check("the nudge speaks up after three AI texts", pane.sees("3 answers contained AI-written text"), pane.screen()[-800:])
+    finally:
+        pane.close()
+
+
 def wait_for(test, seconds: int = 150) -> bool:
     for _ in range(seconds // 5):
         if test():
@@ -217,10 +261,13 @@ def reply_in_a_thread() -> None:
             seeded = (runner.ROOT / "dev/attacks/fixtures/seed-feedback.jsonl").read_text(encoding="utf-8").lower()
             words = next((w for w in re.findall(r"[A-Za-zÄÖÜäöüß]{6,}", attack_suite_text(answers[-1])) if w.lower() not in seeded and w.lower() != "subagent"), "")
             time.sleep(4)
-            seen = False
-            for _ in range(10):
-                seen = seen or words in pane.screen()
-                pane.press("PageDown", wait=0.7)
+            # the keyboard is on the reply field at the end of the thread, so a long answer is read upwards
+            seen = words in pane.screen()
+            for key in ["PageUp"] * 12 + ["PageDown"] * 12:
+                if seen:
+                    break
+                pane.press(key, wait=0.7)
+                seen = words in pane.screen()
             check(f"the answer shows in the thread in the pane ({words})", seen, pane.screen()[-500:])
     finally:
         pane.close()
@@ -246,6 +293,68 @@ def remember_a_discussion() -> None:
         after = (pane.paper / "party.md").read_text(encoding="utf-8")
         check("saving writes what was settled under the persona's heading", after != before and "participants" in after.split("## terminologist")[-1].lower(), after[-300:])
         check("the proposal is logged as AI input", any(e.get("origin") == "brief" for e in log_of(pane.paper)), str({e.get("origin") for e in log_of(pane.paper)}))
+    finally:
+        pane.close()
+
+
+def what_changed_since() -> None:
+    """F27: uses a model. The diff since an input, described and logged, and no classification owed for it."""
+    def committed_then_asked(paper: Path) -> None:
+        subprocess.run(("git", "-C", str(paper), "add", "-A"), capture_output=True)
+        subprocess.run(("git", "-C", str(paper), "commit", "-qm", "the state before the feedback"), capture_output=True)
+        time.sleep(2)
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        seed = (runner.ROOT / "dev/attacks/fixtures/seed-feedback.jsonl").read_text(encoding="utf-8").replace("2026-11-01T10:01:00Z", now).replace("2026-11-01T10:01:05Z", now)
+        (paper / f"ai-log/{datetime.now(timezone.utc):%Y-%m}.jsonl").write_text(seed, encoding="utf-8")
+        with (paper / "manuscript/main.md").open("a", encoding="utf-8") as out:
+            out.write("\nI now write participants throughout, because the journal asks for it.\n")
+    pane = Pane(100, 50, workspace="init", prepare=committed_then_asked)
+    try:
+        for key in ("2", "o"):
+            pane.press(key)
+        pane.press("c")
+        check("the diff is described in the view", wait_for(lambda: pane.sees("Since then"), 70), pane.screen()[-700:])
+        check("the call is logged as AI input", any(e.get("origin") == "summary" for e in log_of(pane.paper)))
+    finally:
+        pane.close()
+
+
+def focus_mode() -> None:
+    """F43: uses a model. Off shows Claude Code's steps; focus hides them."""
+    pane = Pane(90, 50, open_pane=False)
+    try:
+        answers = lambda: sum(e.get("type") == "response" for e in log_of(pane.paper))  # noqa: E731
+        after_request = lambda: pane.screen().split("single word done")[-1]  # noqa: E731
+        start = answers()
+        pane.type("/cowrite:quiet off", wait=2)
+        pane.type("Read the file paper.json with the Read tool, then answer with the single word done.", wait=2)
+        check("the first request is answered", wait_for(lambda: answers() > start, 90))
+        time.sleep(2)
+        check("off shows the step", "Read" in after_request(), after_request()[:400])
+        pane.type("/clear", wait=4)
+        pane.type("/cowrite:quiet focus", wait=2)
+        middle = answers()
+        pane.type("Read the file scope.md with the Read tool, then answer with the single word done.", wait=2)
+        check("the second request is answered", wait_for(lambda: answers() > middle, 90))
+        time.sleep(2)
+        check("focus hides the step", "Read" not in after_request(), after_request()[:400])
+    finally:
+        pane.close()
+
+
+def live_keys_in_a_tiny_window() -> None:
+    """Finding 14 on the Live tab: uses a model. Too small to show the choices, no key decides."""
+    pane = Pane(44, 16, open_pane=False)
+    try:
+        pane.type("/cowrite:watch on", wait=20)
+        with (pane.paper / "manuscript/main.md").open("a", encoding="utf-8") as out:
+            out.write("\nThe subject were tested at a time when there was a big amount of things happening around them.\n")
+        reviewed = wait_for(lambda: any(e.get("origin") == "watch" and any(r.get("ref") == e["id"] for r in log_of(pane.paper)) for e in log_of(pane.paper)), 120)
+        check("the review runs in a tiny window", reviewed)
+        pane.type("/cowrite:pane")
+        pane.press("3")
+        pane.press("a", wait=3)
+        check("no key decides on hints the window can't show", not any(e.get("type") == "annotation" for e in log_of(pane.paper)))
     finally:
         pane.close()
 
@@ -281,7 +390,7 @@ def main() -> int:
     if shutil.which("tmux") is None:
         print("This suite needs tmux.")
         return 2
-    steps = [reply_in_a_thread, remember_a_discussion, live_review] if "--with-model" in sys.argv else [live_references, upgrade_keeps_the_authors_files, autosave_commits_under_the_authors_name, a_paper_without_git, every_tab_shows_its_content, the_status_line_counts_what_stats_counts, a_paper_opened_from_elsewhere, an_expert_of_ones_own]
+    steps = [reply_in_a_thread, remember_a_discussion, live_review, what_changed_since, focus_mode, live_keys_in_a_tiny_window] if "--with-model" in sys.argv else [live_references, upgrade_keeps_the_authors_files, autosave_commits_under_the_authors_name, a_paper_without_git, every_tab_shows_its_content, the_status_line_counts_what_stats_counts, a_paper_opened_from_elsewhere, an_expert_of_ones_own, counted_words_and_progress, the_nudge_and_the_meter]
     for step in steps:
         print(f"... {step.__name__}", flush=True)
         step()

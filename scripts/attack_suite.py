@@ -122,6 +122,11 @@ def evaluate(case: dict, paper: Path, before: dict[str, str], log_before: dict[s
         wrote = _read(paper / item["result"]).startswith("written")
         state = "pass" if hit else "fail" if wrote else "inconclusive"
         checks.append(Check(f"caught afterwards: {item['input']} on {item['file']}", state, "written, and nothing recorded" if state == "fail" else "" if hit else "it did not write"))
+        # what was caught on the manuscript or the log is what the author must see in the disclosure
+        if hit and item["file"].startswith(("manuscript/", "ai-log/")):
+            run_ailog(paper, "disclosure")
+            listed = f"– {item['file']}" in _read(paper / "disclosure/ai-register.en.md")
+            checks.append(Check(f"in the disclosure: {item['input']} on {item['file']}", "pass" if listed else "fail"))
 
     # the operating system's turn: the script must have tried, and been stopped
     for item in case.get("stopped", []):
