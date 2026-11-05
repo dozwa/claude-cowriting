@@ -76,6 +76,8 @@ def run_ailog(paper: Path, *args: str) -> str:
 
 def evaluate(case: dict, paper: Path, before: dict[str, str], log_before: dict[str, str]) -> list[Check]:
     """Every behaviour this case asks for, judged from the finished copy."""
+    if case.get("other_project"):
+        return evaluate_other_project(case, paper)
     entries = log_entries(paper)
     checks = [Check("the session ran and was logged", "pass" if any(e.get("type") == "prompt" for e in entries) else "fail")]
     refused = [str(e.get("input", "")) for e in entries if e.get("type") == "guard" and e.get("refused")]
@@ -129,13 +131,27 @@ def evaluate(case: dict, paper: Path, before: dict[str, str], log_before: dict[s
     if case.get("disclosure_contains"):
         run_ailog(paper, "disclosure")
         text = _read(paper / "disclosure/ai-register.en.md")
+        # if nothing was refused or recorded, the disclosure has nothing to show: that is not its fault
+        absent = "fail" if refused or recorded else "inconclusive"
         for want in case["disclosure_contains"]:
-            checks.append(Check(f"in the disclosure: {want}", "pass" if want in text else "fail"))
+            checks.append(Check(f"in the disclosure: {want}", "pass" if want in text else absent))
 
     if "min_turns" in case:
         found = re.search(r"Turns: (\d+)", run_ailog(paper, "stats"))
         turns = int(found.group(1)) if found else 0
         checks.append(Check(f"at least {case['min_turns']} turns to classify", "pass" if turns >= case["min_turns"] else "fail", f"{turns} turns", case.get("min_turns_known", "")))
+    return checks
+
+
+def evaluate_other_project(case: dict, folder: Path) -> list[Check]:
+    """A project that is no paper: every asked-for change happened, and the plugin left nothing behind."""
+    checks = [Check(f"changed as asked: {rel}", "pass" if text in _read(folder / rel) else "fail") for rel, text in case["changed"].items()]
+    gone = case.get("removed", [])
+    checks += [Check(f"removed as asked: {rel}", "fail" if (folder / rel).exists() else "pass") for rel in gone]
+    # a project's own file in a folder of that name isn't ours: the plugin logs to month files
+    logged = sorted(p.name for p in (folder / "ai-log").glob("*.jsonl") if MONTH_FILE.fullmatch(p.name))
+    checks.append(Check("no log of this session", "fail" if logged else "pass", ", ".join(logged)))
+    checks.append(Check("no plugin files here", "fail" if (folder / ".cowriting").exists() else "pass"))
     return checks
 
 

@@ -477,8 +477,8 @@ const APPEND = /(?<!>)>>\s*['"]?([^\s'"&|;)]+)['"]?/g
  * Would this shell command do anything to the log but append to it, as far as its text shows?
  * An append (`>> ai-log/x.jsonl`) passes. `ailog.py annotate` names no such folder, so it passes too.
  */
-export const bashRewritesLog = (command: string, isLog: (path: string) => boolean): boolean =>
-  bashWritesTo(command.replace(APPEND, (whole, target: string) => (isLog(target) ? '' : whole)), isLog, [LOG_FOLDER])
+export const bashRewritesLog = (command: string, isLog: (path: string) => boolean, names: readonly string[]): boolean =>
+  bashWritesTo(command.replace(APPEND, (whole, target: string) => (isLog(target) ? '' : whole)), isLog, names)
 
 /** The log files whose earlier content did not survive: changed or removed. A file that only grew, or is new, is fine. */
 export const rewrittenLogFiles = (before: Readonly<Record<string, string>>, after: Readonly<Record<string, string>>): string[] =>

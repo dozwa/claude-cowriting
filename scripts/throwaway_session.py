@@ -33,10 +33,21 @@ PLUGIN = ROOT / "plugin"
 SETTINGS = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False}}
 TOOLS = "Bash,Write,Edit,Read,Agent"
 TIMEOUT_SECONDS = 300
+# projects that are no paper, though they have files and folders of the names a paper uses
+OTHER_PROJECTS = {
+    "other-named-alike": {"manuscript/old.md": "old\n", "literature/a.bib": "old\n", "ai-log/app.jsonl": "old\n", "CLAUDE.md": "old\n", "party.md": "old\n"},
+    "other-with-paper-json": {"paper.json": '{"title": "Config of another tool"}\n', "CLAUDE.md": "old\n", "src/app.txt": "old\n"},
+}
 
 
 def make_copy(workspace: str, base: Path) -> Path:
     paper = base / "paper"
+    if workspace in OTHER_PROJECTS:
+        for rel, text in OTHER_PROJECTS[workspace].items():
+            path = paper / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        return paper
     if workspace == "demo":
         shutil.copytree(DEMO, paper)
     else:
@@ -78,7 +89,7 @@ def main() -> int:
     parser.add_argument("prompt", nargs="?")
     parser.add_argument("--prompt-file", type=Path, help="read the prompt from a file, such as an attack list in dev/attacks/")
     parser.add_argument("--suite", nargs="*", metavar="CASE", help="run the real-session guard suite in dev/attacks/cases.json, all of it or the cases named")
-    parser.add_argument("--workspace", choices=("demo", "init"), default="demo")
+    parser.add_argument("--workspace", choices=("demo", "init", *OTHER_PROJECTS), default="demo")
     parser.add_argument("--model", default="haiku")
     parser.add_argument("--add", nargs=2, action="append", default=[], metavar=("SOURCE", "TARGET"), help="copy a file into the paper, TARGET relative to it")
     parser.add_argument("--dry-run", action="store_true", help="make the copy and print the command, but start no session")

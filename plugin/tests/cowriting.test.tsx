@@ -336,14 +336,145 @@ test('a manuscript folder in another project is left alone', async ($, on) => {
   }
 })
 
-test("a paper's manuscript folder is refused from anywhere, and what can't be told is refused too", async ($, on) => {
+test('working in another project, the guard stays out of the way, and the plugin leaves no trace', async ($, on) => {
+  const files = new Map([
+    [`${ROOT}/manuscript/old.md`, 'x'],
+    [`${ROOT}/CLAUDE.md`, 'x'],
+    [`${ROOT}/literature/a.bib`, 'x'],
+    [`${ROOT}/ai-log/app.jsonl`, 'x'],
+  ])
+  workspace(on, files)
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  on('tool.call', () => ({ result: {} }))
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+  await $.prompt.submit({ text: 'tidy up this project', wait: false, origin: { kind: 'composer' } })
+
+  for (const input of [
+    { tool: 'Write', file_path: 'CLAUDE.md' },
+    { tool: 'Edit', file_path: 'literature/a.bib' },
+    { tool: 'Write', file_path: 'ai-log/app.jsonl' },
+    { tool: 'Write', file_path: 'paper.json' },
+    { tool: 'Write', file_path: '$DIR/manuscript/x.md' },
+    { tool: 'Bash', command: 'echo x > $DIR/manuscript/x.md' },
+    { tool: 'Bash', command: 'cp a.md $(pwd)/manuscript/x.md' },
+    { tool: 'Bash', command: 'for f in *.md; do cp "$f" "manuscript/$f"; done' },
+    { tool: 'Bash', command: 'rm -rf ai-log literature' },
+    { tool: 'Bash', command: 'echo x > CLAUDE.md' },
+    // the word in a message or an argument, next to something that writes
+    { tool: 'Bash', command: 'git commit -m "protect manuscript/ when $USER saves" && rm -f build.log' },
+    { tool: 'Bash', command: `python3 run.py 'a prompt: F=$X; sed -i s/a/b/ manuscript/main.md' -o out.txt` },
+    { tool: 'Bash', command: 'tool --prompt "write `date` into manuscript/main.md" > out.txt' },
+  ]) {
+    const label = String(input.command ?? input.file_path)
+    expect((await $.tool.call(input as never)).deny, label).toBeUndefined()
+  }
+  expect([...files.keys()].filter(k => k.endsWith('.jsonl'))).toEqual([`${ROOT}/ai-log/app.jsonl`]) // nothing logged here
+  expect(files.get(`${ROOT}/ai-log/app.jsonl`)).toBe('x')
+})
+
+test('a project with a paper.json of its own is not a paper', async ($, on) => {
+  const files = new Map([
+    [`${ROOT}/paper.json`, '{"title":"A config of some other tool"}'],
+    [`${ROOT}/CLAUDE.md`, 'x'],
+    [`${ROOT}/src/index.ts`, 'x'],
+  ])
+  workspace(on, files)
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  on('tool.call', () => ({ result: {} }))
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+  await $.prompt.submit({ text: 'tidy up this project', wait: false, origin: { kind: 'composer' } })
+
+  for (const input of [
+    { tool: 'Write', file_path: 'CLAUDE.md' },
+    { tool: 'Write', file_path: 'src/index.ts' },
+    { tool: 'Write', file_path: 'paper.json' },
+    { tool: 'Bash', command: 'rm paper.json' },
+    { tool: 'Bash', command: 'echo x > CLAUDE.md' },
+    { tool: 'Write', file_path: 'manuscript/new.md' },
+  ]) {
+    const label = String(input.command ?? input.file_path)
+    expect((await $.tool.call(input as never)).deny, label).toBeUndefined()
+  }
+  expect([...files.keys()].some(k => k.includes('/ai-log/'))).toBe(false)
+})
+
+test('with a paper open but the work elsewhere, the guard holds for the paper and nothing else', async ($, on) => {
+  const paper = '/p'
+  const files = new Map([
+    [`${paper}/paper.json`, '{"name":"p","format":"markdown","language":"en"}'],
+    [`${paper}/manuscript/main.md`, 'x'],
+    [`${paper}/CLAUDE.md`, 'x'],
+    [`${ROOT}/manuscript/other.md`, 'x'],
+    [`${ROOT}/CLAUDE.md`, 'x'],
+  ])
+  workspace(on, files)
+  on('fs.stat', (_: unknown, e: { path: string }) => {
+    const isDir = [...files.keys()].some(k => k.startsWith(`${e.path}/`))
+    if (!isDir && !files.has(e.path)) throw new Error(`ENOENT ${e.path}`)
+    return { value: { kind: isDir ? 'dir' : 'file', size: 0, mtimeMs: 0, isLink: false } }
+  })
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('tool.call', () => ({ result: {} }))
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'cowrite:paper', args: paper } as never)
+
+  for (const input of [
+    { tool: 'Write', file_path: 'CLAUDE.md' },
+    { tool: 'Write', file_path: 'manuscript/other.md' },
+    { tool: 'Bash', command: 'echo x > manuscript/other.md' },
+    { tool: 'Bash', command: 'rm -f manuscript/*.bak' },
+    { tool: 'Bash', command: 'rm CLAUDE.md' },
+    { tool: 'Bash', command: 'rm ai-log/app.jsonl' },
+    { tool: 'Bash', command: 'echo x > ai-log/app.jsonl' },
+  ]) {
+    const label = String(input.command ?? input.file_path)
+    expect((await $.tool.call(input as never)).deny, label).toBeUndefined()
+  }
+  for (const input of [
+    { tool: 'Write', file_path: `${paper}/manuscript/main.md` },
+    { tool: 'Write', file_path: `${paper}/CLAUDE.md` },
+    { tool: 'Write', file_path: `${paper}/ai-log/2026-11.jsonl` },
+    { tool: 'Bash', command: `echo x > ${paper}/manuscript/main.md` },
+    { tool: 'Bash', command: `cd ${paper} && echo x > manuscript/main.md` },
+    { tool: 'Bash', command: `rm ${paper}/CLAUDE.md` },
+    { tool: 'Bash', command: `rm ${paper}/ai-log/2026-11.jsonl` },
+    { tool: 'Bash', command: `echo x > ${paper}/ai-log/2026-11.jsonl` },
+  ]) {
+    const label = String(input.command ?? input.file_path)
+    expect((await $.tool.call(input as never)).deny, label).toBeTruthy()
+  }
+})
+
+test('a Word file in another project is read as that project would read it', async ($, on) => {
+  workspace(on, new Map([[`${ROOT}/report.docx`, 'PK not text']]))
+  const reached: string[] = []
+  on('tool.call', (_: unknown, e: { file_path?: string }) => {
+    reached.push(String(e.file_path))
+    return { result: {} }
+  })
+  const runs: unknown[] = []
+  on('process.run', (_: unknown, e: { argv: unknown }) => {
+    runs.push(e.argv)
+    return { value: { exitCode: 0, stdout: 'converted', stderr: '' } as never }
+  })
+  await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'Read', file_path: 'report.docx' })
+  expect(reached).toEqual(['report.docx'])
+  expect(runs.length).toBe(0)
+})
+
+test("a paper's manuscript folder is refused from anywhere", async ($, on) => {
   on('env.get', () => ({ value: '/home/u' }))
   workspace(on, new Map([
     ['/p/paper.json', '{}'],
     ['/p/manuscript/main.md', 'x'],
     ['/home/u/p/paper.json', '{}'],
+    ['/home/u/p/manuscript/main.md', 'x'],
     [`${ROOT}/projects/a/paper.json`, '{}'],
+    [`${ROOT}/projects/a/manuscript/m.md`, 'x'],
     ['/my dir/paper.json', '{}'],
+    ['/my dir/manuscript/main.md', 'x'],
   ]))
   on('tool.call', () => ({ result: {} }))
   await $.session.start({ cwd: ROOT, surface: 'terminal', isInteractive: true })
@@ -353,15 +484,12 @@ test("a paper's manuscript folder is refused from anywhere, and what can't be to
     { tool: 'Write', file_path: '/p/Manuscript/new.md', content: 'x' },
     { tool: 'Write', file_path: '~/p/manuscript/main.md', content: 'x' },
     { tool: 'Write', file_path: 'projects/a/manuscript/m.md', content: 'x' },
-    { tool: 'Write', file_path: '$DIR/manuscript/main.md', content: 'x' },
     { tool: 'Bash', command: 'echo x > /p/manuscript/main.md' },
     { tool: 'Bash', command: 'cd /p && echo x > manuscript/main.md' },
     { tool: 'Bash', command: 'cd /p/manuscript && echo x > main.md' },
     { tool: 'Bash', command: 'echo x > projects/a/manuscript/m.md' },
     { tool: 'Bash', command: 'echo x > ~/p/manuscript/main.md' },
     { tool: 'Bash', command: 'cp a.md "/my dir/manuscript/main.md"' },
-    { tool: 'Bash', command: 'echo x > $DIR/manuscript/main.md' },
-    { tool: 'Bash', command: 'cp a.md $(pwd)/manuscript/main.md' },
   ]) {
     const result = await $.tool.call(input as never)
     expect(result.deny).toContain('CoWriting')
@@ -375,6 +503,14 @@ test("in a session on a paper, Claude's own places stay closed to a manuscript f
 
   const nested = await $.tool.call({ tool: 'Write', file_path: `${ROOT}/notes/ai/manuscript/x.md`, content: 'x' })
   expect(nested.deny).toContain('CoWriting')
+  // working inside a paper, a path that hides where it points is still refused
+  for (const input of [
+    { tool: 'Write', file_path: '$DIR/manuscript/main.tex' },
+    { tool: 'Bash', command: 'echo x > $DIR/manuscript/main.tex' },
+    { tool: 'Bash', command: 'cp a.md $(pwd)/manuscript/main.tex' },
+  ]) {
+    expect((await $.tool.call(input as never)).deny, String(input.command ?? input.file_path)).toBeTruthy()
+  }
   const other = await $.tool.call({ tool: 'Write', file_path: '/other/manuscript/x.md', content: 'x' })
   expect(other.deny).toBeUndefined()
 })
@@ -1470,6 +1606,7 @@ test('/cowrite:paper opens a paper by path from any folder and remembers it', as
   const files = new Map<string, string>([
     [`${elsewhere}/paper.json`, JSON.stringify({ name: 'test', format: 'markdown', language: 'en' })],
     [`${elsewhere}/paper.md`, '# My draft'],
+    [`${elsewhere}/manuscript/main.md`, ''],
     ['/home/u/plain/notes.md', 'no paper here'],
   ])
   workspace(on, files)

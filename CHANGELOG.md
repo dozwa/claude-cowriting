@@ -2,6 +2,7 @@
 
 ## 0.4.0 (unreleased)
 
+- **The guard stays out of other projects.** With the plugin installed for every folder, it could block ordinary work elsewhere. A project with an unrelated `paper.json` was treated as a paper, so all its files were refused. Outside a paper, any writing command that named `manuscript` next to a shell variable or command substitution was refused, even if the word was only in a message. And with a paper open, a project's own `manuscript`, `ai-log` or `CLAUDE.md` was refused too. A paper now needs a `paper.json` and a `manuscript` or `ai-log` folder, and outside a paper only a path that visibly lies in one counts. The price is in the README. Word files outside a paper are no longer converted either.
 - **The AI log only grows.** It used to be append-only by convention. File tools and shell commands that would change what is already in `ai-log/` are now refused, and after every tool call the log is compared by content: a rewrite is undone, the altered version is kept in `.cowriting/log-rewrites/`, and the attempt is shown and listed in the disclosure. `/cowrite:paper upgrade apply` brings the new rule line to an existing workspace's `CLAUDE.md`. The README states the limits.
 - **Refused attempts are on the record.** A refused write used to leave no trace. Each refusal, for the manuscript, the author's other files and the log, is now a log entry and is listed in the disclosure under its own heading. It does not count as a change to the author's files.
 

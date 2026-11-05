@@ -67,21 +67,33 @@ const KEEP_RECENT = 8
 export async function findPaper($: Engine): Promise<Paper | null> {
   const chosen = await read($, paperRootAtom)
   if (chosen !== null) {
-    const json: PaperJson | undefined = await readJson($, join(chosen, 'paper.json'))
+    const json = await paperAt($, chosen)
     if (json !== undefined) return asPaper(chosen, json)
   }
   const cwd = await $.session.cwd()
-  const here: PaperJson | undefined = await readJson($, join(cwd, 'paper.json'))
+  const here = await paperAt($, cwd)
   if (here !== undefined) return asPaper(cwd, here)
 
   const marker = join(cwd, '.active-project')
   if (await $.fs.exists(marker)) {
     const name = (await $.fs.read(marker)).trim()
     const root = join(cwd, 'projects', name)
-    const json: PaperJson | undefined = await readJson($, join(root, 'paper.json'))
+    const json = await paperAt($, root)
     if (json !== undefined) return asPaper(root, json)
   }
   return null
+}
+
+/**
+ * This folder's paper.json, if the folder is a CoWriting paper. Other projects have files of that
+ * name too, and everything in a paper is guarded, so the file alone doesn't make one: a workspace
+ * also holds a `manuscript` or `ai-log` folder from the day it is set up.
+ */
+export async function paperAt($: Engine, root: string): Promise<PaperJson | undefined> {
+  const json: unknown = await readJson($, join(root, 'paper.json'))
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) return undefined
+  const isWorkspace = (await $.fs.exists(join(root, 'manuscript'))) || (await $.fs.exists(join(root, 'ai-log')))
+  return isWorkspace ? (json as PaperJson) : undefined
 }
 
 // ---------------------------------------------------------------- the party
@@ -374,10 +386,9 @@ async function resolvePath($: Engine, arg: string): Promise<string> {
 /** Is one of these paths in a paper's `manuscript` folder? One that can't be told counts as yes. */
 async function namesPaperManuscript($: Engine, paths: readonly string[]): Promise<boolean> {
   for (const path of paths) {
-    const parents = manuscriptParents(path)
-    if (parents === null) return true
-    for (const parent of parents) {
-      if (await $.fs.exists(join(parent, 'paper.json'))) return true
+    // a path that doesn't show where it points names no paper: outside a paper, the guard acts only on what it can see
+    for (const parent of manuscriptParents(path) ?? []) {
+      if ((await paperAt($, parent)) !== undefined) return true
     }
   }
   return false
@@ -394,16 +405,26 @@ async function fileHitsPaperManuscript($: Engine, path: string): Promise<boolean
   const full = shellPath(path, await $.session.cwd(), await homeFor($, path))
   const paper = await findPaper($)
   if (paper !== null && liesIn(full, paper.root)) return true
+  // working inside a paper, a path that hides where it points is refused; elsewhere it is none of the guard's business
+  if (paper !== null && isWithin(await $.session.cwd(), paper.root) && manuscriptParents(full) === null) return true
   return namesPaperManuscript($, [full])
 }
 
-/** Would this command write to a `manuscript` folder of a paper? In a session on a paper, its text alone decides, as it always did. */
+/**
+ * Would this command write to a `manuscript` folder of a paper? Working inside a paper, its text alone
+ * decides, as it always did. Anywhere else only a path that visibly lies in a paper counts, so other
+ * projects can use the word and a folder of that name freely.
+ */
 async function bashHitsPaperManuscript($: Engine, command: string): Promise<boolean> {
   if (!bashTouchesManuscript(command)) return false
-  if ((await findPaper($)) !== null) return true
-  const paths = manuscriptPathsIn(command, await $.session.cwd(), await homeFor($, command))
-  return paths === null || namesPaperManuscript($, paths)
+  const cwd = await $.session.cwd()
+  const paper = await findPaper($)
+  if (paper !== null && isWithin(cwd, paper.root)) return true
+  const paths = manuscriptPathsIn(command, cwd, await homeFor($, command))
+  return paths !== null && namesPaperManuscript($, paths)
 }
+
+const isWithin = (path: string, root: string): boolean => path === root || liesIn(path, root)
 
 async function kindOf($: Engine, path: string): Promise<'file' | 'dir' | 'other' | 'none'> {
   return $.fs.stat(path).then(s => s.kind, () => 'none' as const)
@@ -428,7 +449,7 @@ export async function openPaper($: Engine, arg: string): Promise<string> {
   const kind = await kindOf($, root)
   if (kind === 'none' || kind === 'other') return `No folder ${root}.`
   if (kind === 'file') root = root.replace(/\/[^/]+$/, '') || '/'
-  const json: PaperJson | undefined = await readJson($, join(root, 'paper.json'))
+  const json = await paperAt($, root)
   if (json === undefined) {
     return `${root} is not a CoWriting paper yet. Set it up there with /cowrite:init ${root}`
   }
@@ -2774,6 +2795,9 @@ export const register: Register = (on, options) => {
     const given = String(input.file_path ?? '')
     if (!CONVERTED_FILE.test(given)) return next(e)
     const path = absolutePath(await $.session.cwd(), given)
+    // only a paper's own files: a Word file in another project is that project's business
+    const paper = await findPaper($).catch(() => null)
+    if (paper === null || !liesIn(path, paper.root)) return next(e)
     const text = await readText($, path).catch(() => null)
     if (text === null) return next(e)
     const lines = text.split('\n')
@@ -2800,14 +2824,20 @@ export const register: Register = (on, options) => {
     const paper = READ_ONLY_TOOLS.has(tool) ? null : await findPaper($).catch(() => null)
     if (paper !== null && (isFileWrite || tool === 'Bash')) {
       const cwd = await $.session.cwd()
-      const isLog = (target: string) => isLogPath(absolutePath(cwd, target), paper.root)
-      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog)) return refuse($, tool, input, LOG_GUARD_MESSAGE)
+      // from a folder outside the paper, a bare name means that folder's file: only the paper's full paths count
+      const isInside = isWithin(cwd, paper.root)
+      const inPaper = (name: string) => (isInside ? name : `${paper.root}/${name}`)
+      const isLog = (target: string) => {
+        const full = absolutePath(cwd, target)
+        return (isInside || full.startsWith('/')) && isLogPath(full, paper.root)
+      }
+      if (isFileWrite ? isLog(path) : bashRewritesLog(command, isLog, [inPaper('ai-log')])) return refuse($, tool, input, LOG_GUARD_MESSAGE)
       if (isFileWrite) {
         const file = authorFileOf(absolutePath(cwd, path), paper.root)
         if (file !== null) return refuse($, tool, input, authorGuardMessage(file))
       } else {
         const isAuthors = (target: string) => authorFileOf(absolutePath(cwd, target), paper.root) !== null
-        if (bashWritesTo(command, isAuthors, await authorNames($, paper.root))) return refuse($, tool, input, authorGuardMessage('the file this command writes'))
+        if (bashWritesTo(command, isAuthors, (await authorNames($, paper.root)).map(inPaper))) return refuse($, tool, input, authorGuardMessage('the file this command writes'))
       }
     }
 

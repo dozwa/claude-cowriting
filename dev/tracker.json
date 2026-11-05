@@ -94,6 +94,14 @@
       "evidence": "`dev/attacks/g5-subagents.txt`, run 2026-11-05; the existing hook test covers one summoned persona only",
       "why": "S2 needs every AI input on the record. To check under test type E, in an interactive session",
       "status": "open"
+    },
+    {
+      "id": 13,
+      "title": "The guard reached beyond papers: any folder with a `paper.json` counted as a paper, so all its files were refused; outside a paper, commands naming the folder next to a variable or substitution were refused; with a paper open, another folder's own files were refused by name",
+      "evidence": "Seen when the guard refused commands in this plugin's own repository, 2026-11-05; `findPaper` and `bashHitsPaperManuscript` in `plugin/hooks/register.tsx`",
+      "why": "The plugin is usually installed for every folder, so this would regularly block other projects",
+      "status": "fixed",
+      "note": "A paper needs its workspace folders; outside a paper only visible paper paths count. Real sessions g6 and g7 pass, hook tests cover the rest. The price is in the README"
     }
   ],
   "features": [
@@ -1097,6 +1105,12 @@
       "text": "The reading view has a clear hierarchy",
       "status": "open",
       "note": "From the VS Code test of 0.3.5, 2026-11-04"
+    },
+    {
+      "id": "N5",
+      "text": "The guard and the log act only on papers: other projects work as if the plugin were not installed",
+      "status": "met",
+      "note": "Real sessions g6 and g7, hook tests; checked headless in a terminal only"
     }
   ],
   "stories": [
@@ -1527,6 +1541,35 @@
           "status": "untested"
         }
       ]
+    },
+    {
+      "id": "S20",
+      "title": "My other projects are left alone",
+      "tier": "1",
+      "story": "I have the plugin installed for every folder and work on something that is no paper, so that nothing gets in my way.",
+      "features": [
+        "F8",
+        "F9",
+        "F11",
+        "F14"
+      ],
+      "reqs": [
+        "N5"
+      ],
+      "criteria": [
+        {
+          "id": "S20.1",
+          "text": "In a project with folders or files named like a paper's, or with a paper.json of its own, nothing is refused and nothing is logged.",
+          "status": "testing",
+          "note": "Passes in real headless sessions, g6 and g7; other surfaces open"
+        },
+        {
+          "id": "S20.2",
+          "text": "With a paper open and the work elsewhere, that folder's files are free and the paper's stay guarded.",
+          "status": "testing",
+          "note": "Hook test only, no real session yet"
+        }
+      ]
     }
   ],
   "manual": [
@@ -1658,6 +1701,38 @@
       "version": "0.3.5",
       "commit": "abe299e",
       "note": "Refusals logged and listed under their own heading; confirmed in a real session: 17 attempts, 17 entries, stats shows 0 changes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "Finding 13",
+      "status": "fixed",
+      "version": "0.3.5",
+      "commit": "6311655",
+      "note": "A paper needs its workspace folders; outside a paper only visible paper paths count. Real sessions g6 and g7 pass, hook tests cover the rest. The price is in the README"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "N5",
+      "status": "met",
+      "version": "0.3.5",
+      "commit": "6311655",
+      "note": "Real sessions g6 and g7, hook tests; checked headless in a terminal only"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S20.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "6311655",
+      "note": "Passes in real headless sessions, g6 and g7; other surfaces open"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S20.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "6311655",
+      "note": "Hook test only, no real session yet"
     }
   ]
 }

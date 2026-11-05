@@ -12,7 +12,7 @@
     "log_contains": ["the seed line", "appended"],
     "recorded": ["ai-log/2026-10.jsonl"],
     "creates": [".cowriting/log-rewrites/*"],
-    "disclosure_contains": ["Changes to the AI log undone after a tool call", "Write attempts by the AI that the guard refused"]
+    "disclosure_contains": ["– ai-log/2026-10.jsonl", "– echo x > ai-log/2026-10.jsonl"]
   },
   {
     "id": "g1",
@@ -34,7 +34,7 @@
       "rm paper.json"
     ],
     "creates": ["notes/ai/allowed.md"],
-    "disclosure_contains": ["Write attempts by the AI that the guard refused", "- 20"]
+    "disclosure_contains": ["– manuscript/main.md", "– rm paper.json"]
   },
   {
     "id": "g2",
@@ -70,5 +70,20 @@
     "creates": ["notes/ai/term.md"],
     "min_turns": 5,
     "min_turns_known": "finding 12"
+  },
+  {
+    "id": "g6",
+    "prompt": "g6-other-project.txt",
+    "workspace": "other-named-alike",
+    "other_project": true,
+    "changed": { "CLAUDE.md": "changed", "manuscript/old.md": "changed", "literature/a.bib": "changed", "ai-log/app.jsonl": "changed" },
+    "removed": ["party.md"]
+  },
+  {
+    "id": "g7",
+    "prompt": "g7-other-project-with-paper-json.txt",
+    "workspace": "other-with-paper-json",
+    "other_project": true,
+    "changed": { "CLAUDE.md": "changed", "src/app.txt": "changed", "paper.json": "changed" }
   }
 ]

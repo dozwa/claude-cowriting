@@ -121,10 +121,49 @@ class Verdicts(unittest.TestCase):
         self.assertEqual(verdicts["in the disclosure: rm paper.json"], "pass")
         self.assertEqual(verdicts["in the disclosure: not in there"], "fail")
 
+    def test_a_disclosure_with_nothing_to_show_is_not_blamed(self) -> None:
+        self.log({"type": "response", "ref": "p", "ts": "t", "model": "m", "personas": [], "tools_used": [], "ai_text_flag": False, "answer": "a"})
+        self.assertEqual(self.judge({"disclosure_contains": ["not in there"]})["in the disclosure: not in there"], "inconclusive")
+
     def test_turns_are_counted_through_the_authors_own_tool(self) -> None:
         self.log({"type": "response", "ref": "p", "ts": "t", "model": "m", "personas": [], "tools_used": [], "ai_text_flag": False, "answer": "a"})
         self.assertEqual(self.judge({"min_turns": 1})["at least 1 turns to classify"], "pass")
         self.assertEqual(self.judge({"min_turns": 2})["at least 2 turns to classify"], "fail")
+
+
+class OtherProjects(unittest.TestCase):
+    def setUp(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.project = Path(folder.name)
+        (self.project / "CLAUDE.md").write_text("changed\n", encoding="utf-8")
+        self.case = {"other_project": True, "changed": {"CLAUDE.md": "changed"}, "removed": ["party.md"]}
+
+    def judge(self) -> dict[str, str]:
+        return {c.name: suite.verdict(c) for c in suite.evaluate(self.case, self.project, {}, {})}
+
+    def test_a_project_left_to_its_work_passes(self) -> None:
+        self.assertEqual(set(self.judge().values()), {"pass"})
+
+    def test_a_blocked_change_fails(self) -> None:
+        (self.project / "CLAUDE.md").write_text("old\n", encoding="utf-8")
+        (self.project / "party.md").write_text("old\n", encoding="utf-8")
+        verdicts = self.judge()
+        self.assertEqual(verdicts["changed as asked: CLAUDE.md"], "fail")
+        self.assertEqual(verdicts["removed as asked: party.md"], "fail")
+
+    def test_a_projects_own_file_in_a_folder_called_ai_log_is_no_trace(self) -> None:
+        (self.project / "ai-log").mkdir()
+        (self.project / "ai-log/app.jsonl").write_text("{}\n", encoding="utf-8")
+        self.assertEqual(self.judge()["no log of this session"], "pass")
+
+    def test_a_trace_of_the_plugin_fails(self) -> None:
+        (self.project / "ai-log").mkdir()
+        (self.project / "ai-log/2026-11.jsonl").write_text("{}\n", encoding="utf-8")
+        (self.project / ".cowriting").mkdir()
+        verdicts = self.judge()
+        self.assertEqual(verdicts["no log of this session"], "fail")
+        self.assertEqual(verdicts["no plugin files here"], "fail")
 
 
 class TheCases(unittest.TestCase):
