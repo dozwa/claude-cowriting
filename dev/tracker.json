@@ -196,7 +196,7 @@
         "paper"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -211,7 +211,7 @@
       "automated": "Yes",
       "add": "E",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -226,7 +226,7 @@
       "automated": "Yes",
       "add": "S",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -403,7 +403,7 @@
         "annotate"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -457,7 +457,7 @@
       "automated": "Yes",
       "add": "E (real git)",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -557,7 +557,7 @@
         "party"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -720,7 +720,7 @@
         "verify_refs"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -738,7 +738,7 @@
         "bibliography"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -803,7 +803,7 @@
         "pane"
       ],
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -818,7 +818,7 @@
       "automated": "Yes",
       "add": "S, M",
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -838,7 +838,7 @@
       "automated": "Yes",
       "add": "S, M, H",
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -855,7 +855,7 @@
       "automated": "Partly",
       "add": "S",
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -872,7 +872,7 @@
       "automated": "Yes",
       "add": "S, M",
       "status": {
-        "terminal": "untested",
+        "terminal": "testing",
         "vscode": "untested",
         "desktop": "untested"
       }
@@ -1431,7 +1431,8 @@
         {
           "id": "S11.1",
           "text": "All surfaces show the same count, which matches `ailog.py stats`.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Tool, tab and status line agree in a real terminal; other surfaces in the manual run"
         }
       ]
     },
@@ -1467,7 +1468,8 @@
         {
           "id": "S13.1",
           "text": "The guard, log and pane all point at that paper.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in a real terminal; other surfaces in the manual run"
         }
       ]
     },
@@ -1484,7 +1486,8 @@
         {
           "id": "S14.1",
           "text": "`upgrade` lists the gaps; `apply` leaves the manuscript, `party.md` and `scope.md` unchanged.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in a real run; other surfaces in the manual run"
         }
       ]
     },
@@ -2125,6 +2128,154 @@
       "status": "open",
       "version": "0.3.5",
       "commit": "d048ef5"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F33",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Live Crossref: OK, MISMATCH, NOT FOUND and NO DOI all as they should be. Found and fixed: one-line BibTeX read as 0 entries"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F34",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "U",
+      "commit": "fd44687",
+      "note": "Five BibTeX layouts added after the live test showed the gap; real exports from a reference manager are for the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F4",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Real tools, no model, headless or terminal: lists the gaps, applies them, the manuscript, briefing and scope stay as they were, old rules kept"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F19",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Real tools, no model, headless or terminal: a real pause, a real commit, under the author's name, only manuscript and log"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F5",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Real tools, no model, headless or terminal: the pane says no git; the versioning switch by hook test"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F3",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Real tools, no model, headless or terminal: opened by path from another folder, the pane follows, the other folder gets no log"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F24",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "E",
+      "commit": "fd44687",
+      "note": "Real tools, no model, headless or terminal: an expert's file joins the roster; the interview for /cowrite:party new is not run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S14.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "fd44687",
+      "note": "Holds in a real run; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S13.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "fd44687",
+      "note": "Holds in a real terminal; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S11.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "fd44687",
+      "note": "Tool, tab and status line agree in a real terminal; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F38",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F39",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F41",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F42",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F16",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F40",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "terminal",
+      "commit": "fd44687",
+      "note": "Real terminal, screen and workflow suites at several sizes"
     }
   ]
 }

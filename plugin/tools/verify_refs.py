@@ -37,7 +37,6 @@ import bibliography  # noqa: E402
 
 field = bibliography.bib_field  # kept for callers of the first version
 norm = bibliography.norm
-ENTRY = bibliography.BIB_ENTRY
 
 API = "https://api.crossref.org/works"
 

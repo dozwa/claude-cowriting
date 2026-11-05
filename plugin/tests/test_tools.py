@@ -449,6 +449,25 @@ class Bibliography(unittest.TestCase):
         (lit / "notes.txt").write_text("not a bibliography", encoding="utf-8")
         return lit
 
+    def test_bibtex_is_read_however_an_export_lays_it_out(self) -> None:
+        import bibliography
+        layouts = {
+            "one line": "@article{a2021, title={A title}, year={2021}, doi={10.1/x}}",
+            "brace on its own line": "@article{a2021,\n  title = {A title},\n  year = {2021},\n  doi = {10.1/x}\n}\n",
+            "brace indented": "@article{a2021,\n  title = {A title},\n  year = {2021},\n  doi = {10.1/x}\n  }\n",
+            "brace after the last field": "@article{a2021,\n  title = {A title},\n  year = {2021},\n  doi = {10.1/x}}\n",
+            "quoted": '@article{a2021,\n  title = "A title",\n  year = 2021,\n  doi = "10.1/x"\n}\n',
+        }
+        for name, text in layouts.items():
+            for two in (text, f"{text}\n@book{{b2020, title={{A {{Nested}} one}}, year={{2020}}}}\n"):
+                entries = bibliography.load_bibtex(two)
+                self.assertEqual(entries[0]["key"], "a2021", name)
+                self.assertEqual(entries[0]["title"], "A title", name)
+                self.assertEqual(entries[0]["year"], "2021", name)
+                self.assertEqual(entries[0]["doi"], "10.1/x", name)
+            self.assertEqual(entries[1]["key"], "b2020", name)
+        self.assertEqual(bibliography.load_bibtex("@comment{ignored, nothing}"), [])
+
     def test_every_format_comes_out_as_the_same_entries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             lit = self.write(tmp)

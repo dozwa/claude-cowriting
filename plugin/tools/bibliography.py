@@ -24,7 +24,22 @@ from pathlib import Path
 
 FORMATS = {".bib": "BibTeX", ".bibtex": "BibTeX", ".json": "CSL JSON", ".ris": "RIS", ".nbib": "MEDLINE"}
 
-BIB_ENTRY = re.compile(r"@(\w+)\s*\{\s*([^,\s]+)\s*,(.*?)\n\}", re.S)
+BIB_START = re.compile(r"@(\w+)\s*\{\s*([^,\s{}]+)\s*,")
+
+
+def bib_entries(text: str) -> list[tuple[str, str, str]]:
+    """Every entry as (kind, key, body), wherever its closing brace is: exports differ in how they lay them out."""
+    out = []
+    at = 0
+    while (start := BIB_START.search(text, at)) is not None:
+        depth = 1
+        i = start.end()
+        while i < len(text) and depth > 0:
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            i += 1
+        out.append((start.group(1), start.group(2), text[start.end():i - 1 if depth == 0 else i]))
+        at = i
+    return out
 
 
 def entry(**fields) -> dict:
@@ -103,7 +118,7 @@ def bib_field(body: str, name: str) -> str | None:
 
 def load_bibtex(text: str, file: str = "") -> list[dict]:
     out = []
-    for kind, key, body in BIB_ENTRY.findall(text):
+    for kind, key, body in bib_entries(text):
         if kind.lower() in ("comment", "string", "preamble"):
             continue
         authors = [family(a) for a in re.split(r"\s+and\s+", bib_field(body, "author") or "") if a.strip()]

@@ -33,18 +33,30 @@ def tmux(*args: str) -> str:
 class Pane:
     """A real session in a real terminal of this size, with its pane opened."""
 
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(self, width: int, height: int, workspace: str = "demo", start_in: Path | None = None, prepare=None, open_pane: bool = True) -> None:
         self.size = f"{width}x{height}"
         self.base = Path(tempfile.mkdtemp(prefix="cowriting-screen-")).resolve()
-        self.paper = runner.make_copy("demo", self.base)
-        runner.add_files(self.paper, [[str(SEED), "ai-log/2026-11.jsonl"]])
+        self.paper = runner.make_copy(workspace, self.base)
+        if workspace == "demo":
+            runner.add_files(self.paper, [[str(SEED), "ai-log/2026-11.jsonl"]])
+        if prepare is not None:
+            prepare(self.paper)
+        folder = start_in if start_in is not None else self.paper
         tmux("kill-session", "-t", SESSION)
-        tmux("new-session", "-d", "-s", SESSION, "-x", str(width), "-y", str(height), "-c", str(self.paper), f"claude --plugin-dir {runner.PLUGIN} --model haiku")
+        tmux("new-session", "-d", "-s", SESSION, "-x", str(width), "-y", str(height), "-c", str(folder), f"claude --plugin-dir {runner.PLUGIN} --model haiku")
         time.sleep(5)
         self.press("Down", wait=1)  # Claude Code asks whether to trust the folder; this one was made a moment ago
         self.press("Enter", wait=5)
-        tmux("send-keys", "-t", SESSION, "/cowrite:pane", "Enter")
-        time.sleep(3)
+        if open_pane:
+            self.type("/cowrite:pane")
+
+    def type(self, line: str, wait: float = 3) -> None:
+        tmux("send-keys", "-t", SESSION, "-l", line)
+        time.sleep(1)  # as a person types: the prompt's menu closes before Enter
+        tmux("send-keys", "-t", SESSION, "Escape")
+        time.sleep(0.3)
+        tmux("send-keys", "-t", SESSION, "Enter")
+        time.sleep(wait)
 
     def press(self, key: str, wait: float = 1.5) -> None:
         tmux("send-keys", "-t", SESSION, key)
