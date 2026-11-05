@@ -1281,7 +1281,12 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
   // transcript, and the frame fits the tree: so the party is a short list with small sprites and the
   // help lines are folded into one. The terminal's inline pane keeps the grid, since a raster sprite
   // is eight rows tall either way.
-  const isCompact = props.placement === 'inline' && e.surface !== 'terminal'
+  // A small terminal gets the same short forms: the pane's frame there holds only a few rows, and a
+  // key must never decide on something those rows don't show.
+  const screenRows = e.viewport?.rows ?? 40
+  const isNarrow = props.columns < 70
+  const isSmall = screenRows < 30 || isNarrow
+  const isCompact = isSmall || (props.placement === 'inline' && e.surface !== 'terminal')
 
   if (snapshot.paper === null) {
     return (
@@ -1310,17 +1315,29 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
 
   const header = (
     <Box flexDirection="column">
-      <Text weight="bold">
-        ✍ {paper.name}{' '}
-        <Text dimColor>
-          · {paper.format} · {paper.language} · assist-only{paper.versioning === 'none' ? ' · no git' : ''}
+      {isSmall ? (
+        <Text weight="bold">✍ {cut(paper.name, Math.max(16, columns - 6))}</Text>
+      ) : (
+        <Text weight="bold">
+          ✍ {paper.name}{' '}
+          <Text dimColor>
+            · {paper.format} · {paper.language} · assist-only{paper.versioning === 'none' ? ' · no git' : ''}
+          </Text>
         </Text>
-      </Text>
+      )}
       <Box flexDirection="row">
         {tabs.map((t, i) => (
           <Button
             key={`tab-${t}`}
-            label={`${t === tab ? '▸ ' : ''}${tabLabel(t)}`}
+            label={
+              t === tab
+                ? `▸ ${tabLabel(t)}`
+                : !isNarrow
+                  ? tabLabel(t)
+                  : t === 'feedback' && stats.unannotated > 0
+                    ? `${i + 1} (${stats.unannotated})`
+                    : String(i + 1)
+            }
             hotkey={String(i + 1)}
             variant={t === tab ? 'primary' : 'secondary'}
             onPress={() => props.onTab(t)}
@@ -1329,7 +1346,7 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
         <Button key="refresh" label="↻" hotkey="r" onPress={props.onRefresh} />
       </Box>
       {!isCompact && <Text dimColor>Esc back to prompt</Text>}
-      {props.usage.length > 0 && <Text dimColor>⏱ {props.usage.join(' · ')}</Text>}
+      {props.usage.length > 0 && !isSmall && <Text dimColor>⏱ {props.usage.join(' · ')}</Text>}
     </Box>
   )
 
@@ -1384,10 +1401,19 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
   }
 
   if (tab === 'feedback' && props.reading !== null) {
+    // too small to show the input and its choices: the reason is all that fits, and no key can decide
+    if (screenRows < 20 || props.columns < 40) {
+      return (
+        <Box flexDirection="column">
+          <Text color="warning">Make the window larger to read this and decide.</Text>
+          <Button key="reading-back" label="← Back" hotkey="b" onPress={props.onCloseReading} />
+        </Box>
+      )
+    }
     return (
       <Box flexDirection="column">
         {header}
-        {drawReading($, e, props.reading, props)}
+        {drawReading($, e, props.reading, props, isSmall)}
       </Box>
     )
   }
@@ -1402,7 +1428,7 @@ export function drawPane($: Engine, e: RenderInput, props: PaneProps) {
         {open.length === 0 && <Text dimColor>Nothing open: every AI input is classified. Summon a persona from the Party tab, or ask Claude.</Text>}
         {open.length > 0 && (
           <Box flexDirection="column">
-            <Text weight="bold">Open one, read it, then say whether you used it in your own text</Text>
+            {!isSmall && <Text weight="bold">Open one, read it, then say whether you used it in your own text</Text>}
             {open.map((turn, i) => (
               <Button key={`open-${turn.id}`} plain hotkey={i === 0 ? 'o' : undefined} onPress={() => props.onOpen(turn.id)}>
                 <Text>
@@ -1677,7 +1703,7 @@ const whoSaid = (turn: RecentTurn) => (turn.persona !== undefined ? personaById(
  * then what you asked and what it said, drawn as Markdown. Everything to press sits above the text, so a
  * long report (a persona's table of corrections) never pushes the choices out of a short pane.
  */
-function drawReading($: Engine, e: RenderInput, reading: Reading, props: PaneProps) {
+function drawReading($: Engine, e: RenderInput, reading: Reading, props: PaneProps, isSmall: boolean) {
   const elements = $.ui.resolve(e)
   const { Box, Text, Button, Markdown } = elements
   // a surface without a text field (none of the three here, but the table allows it) gets no comment
@@ -1694,7 +1720,7 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
           </Text>
         </Text>
       </Box>
-      <Box flexDirection="row">
+      <Box flexDirection="row" flexWrap="wrap">
         {USES.map(use => (
           <Button
             key={`use-${reading.id}-${use}`}
@@ -1704,7 +1730,7 @@ function drawReading($: Engine, e: RenderInput, reading: Reading, props: PanePro
           />
         ))}
       </Box>
-      <Text dimColor>{USES.map(use => `${USE_LABELS[use].button} = ${USE_LABELS[use].meaning}`).join(' · ')}</Text>
+      {!isSmall && <Text dimColor>{USES.map(use => `${USE_LABELS[use].button} = ${USE_LABELS[use].meaning}`).join(' · ')}</Text>}
       <Box flexDirection="row">
         <Button key="reading-reply" label="Reply" hotkey="y" onPress={props.onReply} />
         <Button

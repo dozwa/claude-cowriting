@@ -69,20 +69,40 @@ class Pane:
         results.append((state, f"[{self.size}] {name}", known))
 
 
+def too_small(width: int, height: int) -> None:
+    """A window too small to show the choices: no key may decide, and the author is told why."""
+    pane = Pane(width, height)
+    try:
+        pane.press("2")
+        pane.press("o")
+        pane.check("the window's size is named as the reason", "larger" in pane.screen())
+        pane.press("a")
+        pane.check("nothing is recorded for what was never shown", len(pane.annotations()) == 0)
+    finally:
+        pane.close()
+
+
 def feedback_loop(width: int, height: int, too_small: str = "") -> None:
     """The author's way through one piece of feedback. `too_small` names the finding if this size can't show it yet."""
     pane = Pane(width, height)
     try:
-        pane.check("the pane says how many inputs are open", pane.sees("Feedback (1)"))
+        pane.check("the pane says how many inputs are open", pane.sees("(1)"))
         pane.press("2")
         # the preview may wrap, so its author's name is what is looked for
         pane.check("the Feedback tab lists the open report", pane.sees("Terminologist"), too_small)
         pane.press("o")
-        for label in ("✓ used", "✎ changed", "✗ not used", "ℹ info", "Reply"):
-            pane.check(f"opened, the choice is on screen: {label}", pane.sees(label), too_small)
-        pane.press("PageDown")
-        pane.check("the report itself can be reached", pane.sees("participants"), too_small)
-        pane.press("PageUp")
+        for label in ("✓ used", "✎ changed", "✗ not used", "ℹ info"):
+            pane.check(f"opened, the choice is on screen without scrolling: {label}", pane.sees(label), too_small)
+        presses = 0
+        seen_reply, seen_report = pane.sees("Reply"), pane.sees("participants")
+        while presses < 4 and not (seen_reply and seen_report):
+            pane.press("PageDown")
+            presses += 1
+            seen_reply, seen_report = seen_reply or pane.sees("Reply"), seen_report or pane.sees("participants")
+        pane.check("Reply can be reached", seen_reply, too_small)
+        pane.check("the report itself can be reached", seen_report, too_small)
+        for _ in range(presses):
+            pane.press("PageUp")
         pane.press("a")
         classified = len(pane.annotations()) == 1
         if too_small:
@@ -95,10 +115,16 @@ def feedback_loop(width: int, height: int, too_small: str = "") -> None:
         pane.close()
 
 
-def tab_labels(width: int, height: int, known: str = "") -> None:
+def tab_labels(width: int, height: int) -> None:
+    """Wide enough, every tab shows its name. Narrow, the open one does and the rest their numbers; no name breaks across lines."""
     pane = Pane(width, height)
     try:
-        pane.check("every tab's name is whole on screen", all(tab in pane.screen() for tab in TABS), known)
+        if width >= 70:
+            pane.check("every tab's name is whole on screen", all(tab in pane.screen() for tab in TABS))
+        else:
+            for key, tab in zip("123456", TABS):
+                pane.press(key)
+                pane.check(f"key {key} opens {tab}, its name whole on screen", tab in pane.screen())
     finally:
         pane.close()
 
@@ -109,9 +135,11 @@ def main() -> int:
         return 2
     feedback_loop(100, 40)
     feedback_loop(120, 70)
-    feedback_loop(48, 24, "finding 14")
+    feedback_loop(80, 24)
+    feedback_loop(48, 24)
+    too_small(44, 16)
     tab_labels(100, 40)
-    tab_labels(48, 24, "finding 15")
+    tab_labels(48, 24)
     counts: dict[str, int] = {}
     for state, name, known in results:
         counts[state] = counts.get(state, 0) + 1
