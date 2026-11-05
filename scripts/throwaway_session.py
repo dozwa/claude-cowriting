@@ -88,12 +88,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("prompt", nargs="?")
     parser.add_argument("--prompt-file", type=Path, help="read the prompt from a file, such as an attack list in dev/attacks/")
+    parser.add_argument("--behaviour", nargs="*", metavar="CASE", help="run the model-behaviour suite in dev/behaviour/cases.json, all of it or the cases named")
     parser.add_argument("--suite", nargs="*", metavar="CASE", help="run the real-session guard suite in dev/attacks/cases.json, all of it or the cases named")
     parser.add_argument("--workspace", choices=("demo", "init", *OTHER_PROJECTS), default="demo")
     parser.add_argument("--model", default="haiku")
     parser.add_argument("--add", nargs=2, action="append", default=[], metavar=("SOURCE", "TARGET"), help="copy a file into the paper, TARGET relative to it")
     parser.add_argument("--dry-run", action="store_true", help="make the copy and print the command, but start no session")
     args = parser.parse_args()
+    if args.behaviour is not None:
+        from behaviour_suite import run_suite as run_behaviour  # it imports this file, so not at the top
+
+        return run_behaviour(args.behaviour, args.model)
     if args.suite is not None:
         from attack_suite import run_suite  # it imports this file, so not at the top
 

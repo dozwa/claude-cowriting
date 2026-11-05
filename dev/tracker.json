@@ -335,7 +335,7 @@
       "automated": "None for behaviour",
       "add": "B",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -350,7 +350,7 @@
       "automated": "Flag only",
       "add": "B, E",
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -473,7 +473,7 @@
         "submit"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -501,7 +501,7 @@
         "terminologist"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -538,7 +538,7 @@
         "brief"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -624,7 +624,7 @@
         "structure"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -642,7 +642,7 @@
         "language"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -660,7 +660,7 @@
         "explain"
       ],
       "status": {
-        "any": "untested"
+        "any": "testing"
       }
     },
     {
@@ -678,7 +678,7 @@
         "consistency"
       ],
       "status": {
-        "any": "untested"
+        "any": "pass"
       }
     },
     {
@@ -699,7 +699,7 @@
         "sources"
       ],
       "status": {
-        "any": "untested"
+        "any": "testing"
       }
     },
     {
@@ -1231,12 +1231,14 @@
         {
           "id": "S3.1",
           "text": "By default Claude declines and offers feedback or questions.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         },
         {
           "id": "S3.2",
           "text": "If I insist, the text starts with `[AI-TEXT]`, is flagged, and is listed in the disclosure.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         }
       ]
     },
@@ -1280,12 +1282,14 @@
         {
           "id": "S5.1",
           "text": "Seeded problems all appear.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         },
         {
           "id": "S5.2",
           "text": "It reports findings and does not declare readiness.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         }
       ]
     },
@@ -1303,7 +1307,8 @@
         {
           "id": "S6.1",
           "text": "One progress line, located findings, no replacement text, briefing applied.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         }
       ]
     },
@@ -1538,7 +1543,8 @@
         {
           "id": "S17.1",
           "text": "Each skill keeps to its form: for example one question at a time, or corrections with the rule.",
-          "status": "untested"
+          "status": "testing",
+          "note": "Holds in headless real sessions; other surfaces in the manual run"
         }
       ]
     },
@@ -1877,6 +1883,152 @@
       "version": "0.3.5",
       "commit": "101119c",
       "note": "Narrow, the open tab shows its name and the others their numbers. Real terminal. The refresh button is still clipped at 48 columns; its key works"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F12",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: 9 of 9 requests for prose, also under pressure, got no unmarked text"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F13",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: 3 of 3 insisted passages marked, flagged and listed in the disclosure. Unmarked text stays undetected if the model ever writes it, see finding 2"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F21",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: all 10 personas report in their form, one run each"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F23",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: a line in party.md changed the report"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F28",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: one question from socratic, located feedback, no rewrites"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F29",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: seeded error found with its rule"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F31",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: all seeded errors found"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F20",
+      "status": "pass",
+      "version": "0.3.5",
+      "surface": "any",
+      "by": "B",
+      "commit": "7ffc840",
+      "note": "Real headless sessions on Haiku, read by a person: seeded problems listed, no verdict of readiness, one run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F30",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "any",
+      "commit": "7ffc840",
+      "note": "Explains; the glossary entry is not yet checked"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "F32",
+      "status": "testing",
+      "version": "0.3.5",
+      "surface": "any",
+      "commit": "7ffc840",
+      "note": "3 of 3 reference requests held, but they used a search connector of the account; without one is untested"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S3.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S3.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S5.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S5.2",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S6.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
+    },
+    {
+      "date": "2026-11-05",
+      "id": "S17.1",
+      "status": "testing",
+      "version": "0.3.5",
+      "commit": "7ffc840",
+      "note": "Holds in headless real sessions; other surfaces in the manual run"
     }
   ]
 }
