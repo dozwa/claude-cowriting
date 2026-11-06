@@ -103,7 +103,7 @@ def main() -> None:
     derived_seen = False
     for path in files:
         entries = bibliography.load(path)
-        print(f"## {path.name}  ({bibliography.format_name(path)}, {len(entries)} {"entry" if len(entries) == 1 else "entries"})")
+        print(f"## {path.name}  ({bibliography.format_name(path)}, {len(entries)} {'entry' if len(entries) == 1 else 'entries'})")
         for e in entries:
             key = shown(e)
             derived_seen = derived_seen or e["derived"]
