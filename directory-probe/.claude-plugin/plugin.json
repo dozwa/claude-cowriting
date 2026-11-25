@@ -1,0 +1,13 @@
+{
+  "name": "cowrite-probe",
+  "displayName": "CoWriting (directory probe)",
+  "version": "0.0.1",
+  "description": "Test build: does the plugin directory accept CoWriting's manuscript guard and AI log as plain command hooks, without a mod? Not for use on a real paper.",
+  "author": {
+    "name": "CoWriting contributors",
+    "url": "https://github.com/dozwa/claude-cowriting"
+  },
+  "homepage": "https://github.com/dozwa/claude-cowriting",
+  "repository": "https://github.com/dozwa/claude-cowriting",
+  "license": "MIT"
+}
