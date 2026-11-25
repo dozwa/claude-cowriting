@@ -1,5 +1,12 @@
 # CoWriting — write it yourself, with a review party at your side
 
+> [!IMPORTANT]
+> **CoWriting for Claude Code is no longer developed.** 0.4.0 is the last release. The plugin, its releases and this documentation stay here and keep working as they are, but no further features or fixes will follow.
+>
+> Its work continues in the **[CoWriting Editor](https://github.com/dozwa/cowriting-editor)**, a standalone desktop app (macOS, Windows, Linux) with the same principles: you write, the AI gives feedback, questions and explanations, it cannot change your text, every AI input is logged, and the log becomes your disclosure. It writes the same log format as this plugin, and has the review party, the reference check against Crossref, and export to PDF and Word.
+>
+> **The editor works with Claude Code.** If Claude Code is installed and signed in on your computer, the editor can use it for the AI instead of an API key: for each question it starts your own `claude` program, with all of Claude Code's own tools switched off, so it can't touch your files. It can also use an Anthropic API key, a model on your own computer (Ollama, LM Studio), or any provider with an OpenAI-compatible API.
+
 ![The review party](docs/img/party.png)
 
 **CoWriting** is a [Claude Code](https://claude.com/claude-code) plugin for theses, articles and reports. **You write. Claude assists** with hints, questions, critique, explanations and literature help. It never ghostwrites your manuscript.
@@ -23,7 +30,7 @@ CoWriting turns these rules into features:
 
 The background research and requirements are in [docs/research-and-requirements.md](docs/research-and-requirements.md). How each feature maps to the DFG principles is in [docs/gwp-rationale.md](docs/gwp-rationale.md).
 
-> **Early alpha.** CoWriting is under development and a one-person project. Commands, files and the folder layout can change massively between releases, and an update may ask you to upgrade an existing paper. Keep your own backups of your manuscript. Feedback, bugs and ideas are welcome as [GitHub issues](https://github.com/dozwa/claude-cowriting/issues) or by mail to dorianzwanzig@gmail.com. The software comes as is, without warranty or liability of any kind, as the [MIT license](LICENSE) states; see [Disclaimer](#disclaimer).
+> **Alpha, and no longer developed.** CoWriting was a one-person project and stopped at 0.4.0 (see the notice at the top). Keep your own backups of your manuscript. Issues stay open for reports, but won't lead to new releases. The software comes as is, without warranty or liability of any kind, as the [MIT license](LICENSE) states; see [Disclaimer](#disclaimer).
 
 ## Install
 
