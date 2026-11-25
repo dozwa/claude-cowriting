@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0 (2026-11-25)
 
 - **Replies happen in the pane.** The opened view is now one thread: the feedback, your replies and the answers, in order. You type a reply in its field and press Enter, and the answer comes back into the thread. It no longer starts in the prompt box.
 - **The opened view reads in one go.** The text appears once: what Claude said when a report came back shows only if it adds something. The comment field says it is saved with your choice. The choices, the comment, then the text, then your reply; in a short pane a line says PgDn brings the rest, and what you just asked for (Remember, What did I change since?) appears above the text.
@@ -9,8 +9,12 @@
 - **Each persona's report counts.** When several reports came back before a turn ended, only the last kept its turn, so the others asked for no classification and were missing from the disclosure's counts.
 - **A new file in the log doesn't pass unnoticed.** Anything but this month's file is taken out, kept in `.cowriting/log-rewrites/`, shown and disclosed.
 - **The AI log only grows.** It used to be append-only by convention. File tools and shell commands that would change what is already in `ai-log/` are now refused, and after every tool call the log is compared by content: a rewrite is undone, the altered version is kept in `.cowriting/log-rewrites/`, and the attempt is shown and listed in the disclosure. `/cowrite:paper upgrade apply` brings the new rule line to an existing workspace's `CLAUDE.md`. The README states the limits.
+- **A review counts as one request.** The prompts appendix counted the turn that launched a reviewer and the report it brought back as two requests. They are now one.
+- **A BibTeX entry on one line is read.** It used to be read as nothing, and `verify_refs.py` then reported a clean `ok: 0 mismatch: 0`. Entries are now read by their braces, however an export lays them out.
 - **Reference checks run on Python 3.10 and 3.11.** `verify_refs.py` used a quote inside an f-string that only Python 3.12 and later accept, so on older versions the reference check and the plugin's Python tests failed to load. Reported in #3, fixed in #4 by @alejandrorusso.
 - **Refused attempts are on the record.** A refused write used to leave no trace. Each refusal, for the manuscript, the author's other files and the log, is now a log entry and is listed in the disclosure under its own heading. It does not count as a change to the author's files.
+
+**Not yet confirmed.** This release goes out before its own gate in [docs/tracker.md](docs/tracker.md) is passed. The guard, the log, the pane and the personas were tested in real terminal sessions, but not yet in VS Code or the desktop app, and not yet in real use on a paper. Not yet confirmed on any surface: install from the marketplace and the zip, the plugin options, Remember, "What did I change since?", Zotero, Obsidian search, `/cowrite:watch`, and the Scope tab with `/cowrite:scope`. On some terminal sizes stray characters can stay on screen after scrolling; the plugin's text is right, the cause is open.
 
 ## 0.3.5 (2026-11-04)
 
