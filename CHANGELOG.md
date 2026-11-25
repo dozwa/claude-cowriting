@@ -9,6 +9,7 @@
 - **Each persona's report counts.** When several reports came back before a turn ended, only the last kept its turn, so the others asked for no classification and were missing from the disclosure's counts.
 - **A new file in the log doesn't pass unnoticed.** Anything but this month's file is taken out, kept in `.cowriting/log-rewrites/`, shown and disclosed.
 - **The AI log only grows.** It used to be append-only by convention. File tools and shell commands that would change what is already in `ai-log/` are now refused, and after every tool call the log is compared by content: a rewrite is undone, the altered version is kept in `.cowriting/log-rewrites/`, and the attempt is shown and listed in the disclosure. `/cowrite:paper upgrade apply` brings the new rule line to an existing workspace's `CLAUDE.md`. The README states the limits.
+- **Reference checks run on Python 3.10 and 3.11.** `verify_refs.py` used a quote inside an f-string that only Python 3.12 and later accept, so on older versions the reference check and the plugin's Python tests failed to load. Reported in #3, fixed in #4 by @alejandrorusso.
 - **Refused attempts are on the record.** A refused write used to leave no trace. Each refusal, for the manuscript, the author's other files and the log, is now a log entry and is listed in the disclosure under its own heading. It does not count as a change to the author's files.
 
 ## 0.3.5 (2026-11-04)
