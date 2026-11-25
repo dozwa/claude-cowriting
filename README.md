@@ -3,6 +3,10 @@
 > [!IMPORTANT]
 > **CoWriting for Claude Code is no longer developed.** 0.4.0 is the last release. The plugin, its releases and this documentation stay here and keep working as they are, but no further features or fixes will follow.
 >
+> **Why it stopped:**
+> - **It couldn't reach the official plugin directory.** Its core features, the manuscript guard, the AI log and the pane, need hooks, scripts and a mod. The Claude plugin directory accepts none of these from organisations Anthropic hasn't verified, and refused CoWriting for it. A version without them would only have asked Claude not to write your text, with nothing to enforce it and nothing logged for the disclosure. So CoWriting would have stayed outside the official ways of getting a plugin, which makes it hard for people to adopt.
+> - **It got in the way of other work.** Installed for every folder, the plugin regularly blocked ordinary requests in projects that had nothing to do with CoWriting, so it had to be switched off and on again between uses.
+>
 > Its work continues in the **[CoWriting Editor](https://github.com/dozwa/cowriting-editor)**, a standalone desktop app (macOS, Windows, Linux) with the same principles: you write, the AI gives feedback, questions and explanations, it cannot change your text, every AI input is logged, and the log becomes your disclosure. It writes the same log format as this plugin, and has the review party, the reference check against Crossref, and export to PDF and Word.
 >
 > **The editor works with Claude Code.** If Claude Code is installed and signed in on your computer, the editor can use it for the AI instead of an API key: for each question it starts your own `claude` program, with all of Claude Code's own tools switched off, so it can't touch your files. It can also use an Anthropic API key, a model on your own computer (Ollama, LM Studio), or any provider with an OpenAI-compatible API.
